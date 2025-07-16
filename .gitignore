@@ -1,21 +1,36 @@
-# Python
+# --- Python ---
 __pycache__/
 *.pyc
 *.pyo
 *.sqlite3
+*.db
 .env
+*.env
 
-# Node (React/Vite)
+# --- Virtual Envs ---
+venv/
+env/
+.venv/
+
+# --- Alembic Migrations ---
+alembic/versions/
+
+# --- Google OAuth tokens & credentials ---
+credentials.json
+token.json
+
+# If stored inside backend:
+backend/google/credentials.json
+backend/google/token.json
+
+# --- Node (React/Vite) ---
 node_modules/
 dist/
 
-# Editor/OS
+# --- Editor / OS ---
 .vscode/
 .DS_Store
 
-# Logs
+# --- Logs ---
 logs/
-
-# Google OAuth credentials
-google/credentials.json
-google/token.json
+*.log

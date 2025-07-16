@@ -1,17 +1,17 @@
 # --- Import necessary SQLAlchemy components ---
-from sqlalchemy import Column, String, Integer, JSON
-from sqlalchemy.orm import relationship
-from ..db.database import Base
+from sqlalchemy import Column, String, Integer, JSON  # Column types including JSON for availability
+from sqlalchemy.orm import relationship  # For defining ORM relationships
+from ..db.base import Base  # SQLAlchemy base model
 
 # --- Define Doctor model ---
 class Doctor(Base):
-    __tablename__ = 'doctors'
+    __tablename__ = 'doctors'  # Database table name
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    specialization = Column(String, index=True)
-    available_days = Column(JSON)  # JSON for storing availability schedule
-    slot_duration = Column(Integer, default=30)  # Default to 30 minutes per slot
+    id = Column(Integer, primary_key=True, index=True)  # Unique doctor ID
+    name = Column(String, index=True)  # Doctor's full name
+    specialization = Column(String, index=True)  # Doctor's field of specialization
+    available_days = Column(JSON)  # JSON structure to store available days & slots
+    slot_duration = Column(Integer, default=30)  # Duration per appointment in minutes (default: 30)
 
     # --- Relationship with appointments ---
-    appointments = relationship("Appointment", back_populates="doctor")
+    appointments = relationship("Appointment", back_populates="doctor")  # Link to Appointment model

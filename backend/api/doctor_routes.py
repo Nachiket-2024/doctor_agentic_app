@@ -1,37 +1,108 @@
-# --- Import FastAPI and dependencies ---
-from fastapi import APIRouter, HTTPException, Depends
+# --- FastAPI and SQLAlchemy imports ---
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
+from datetime import datetime
 
-# --- Import models, schemas, and db session ---
+# --- Import models and schemas ---
 from ..models.doctor_model import Doctor
-from ..schemas.doctor_schema import DoctorCreate, Doctor as DoctorSchema
+from ..models.appointment_model import Appointment
+from ..schemas.doctor_schema import (
+    DoctorCreate,
+    DoctorUpdate,
+    Doctor as DoctorSchema
+)
 from ..db.session import get_db
 
-# --- Create the router instance ---
-router = APIRouter(
-    prefix="/doctors",  # Prefix for all doctor routes
-    tags=["Doctors"]    # Tag for API docs
-)
+# --- Import slot generation utility ---
+from ..utils.availability_utils import generate_available_slots
 
-# --- Route to create a new doctor ---
+# --- Set up the router ---
+router = APIRouter(prefix="/doctors", tags=["Doctors"])
+
+# --- Create a new doctor ---
 @router.post("/", response_model=DoctorSchema)
 def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
-    # Check for duplicate doctor name
-    db_doctor = db.query(Doctor).filter(Doctor.name == doctor.name).first()
-    if db_doctor:
-        raise HTTPException(status_code=400, detail="Doctor already exists")
-
-    # Create and save new doctor
-    new_doctor = Doctor(**doctor.model_dump())
-    db.add(new_doctor)
+    db_doctor = Doctor(**doctor.model_dump())
+    db.add(db_doctor)
     db.commit()
-    db.refresh(new_doctor)
-    return new_doctor
+    db.refresh(db_doctor)
+    return db_doctor
 
-# --- Route to get a doctor by ID ---
+# --- Get all doctors ---
+@router.get("/", response_model=list[DoctorSchema])
+def get_doctors(db: Session = Depends(get_db)):
+    return db.query(Doctor).all()
+
+# --- Get a doctor by ID ---
 @router.get("/{doctor_id}", response_model=DoctorSchema)
 def get_doctor(doctor_id: int, db: Session = Depends(get_db)):
-    db_doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-    if not db_doctor:
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
-    return db_doctor
+    return doctor
+
+# --- Update an existing doctor ---
+@router.put("/{doctor_id}", response_model=DoctorSchema)
+def update_doctor(doctor_id: int, updated: DoctorUpdate, db: Session = Depends(get_db)):
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+
+    for key, value in updated.model_dump(exclude_unset=True).items():
+        setattr(doctor, key, value)
+
+    db.commit()
+    db.refresh(doctor)
+    return doctor
+
+# --- Delete a doctor ---
+@router.delete("/{doctor_id}")
+def delete_doctor(doctor_id: int, db: Session = Depends(get_db)):
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    db.delete(doctor)
+    db.commit()
+    return {"detail": "Doctor deleted"}
+
+# --- Get doctor's availability on a specific date ---
+@router.get("/{doctor_id}/availability")
+def get_doctor_availability(
+    doctor_id: int,
+    date: str = Query(..., description="Date in YYYY-MM-DD format"),
+    db: Session = Depends(get_db)
+):
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    weekday_key = target_date.strftime("%a").lower()[:3]  # e.g., 'mon', 'tue'
+    available_slots = []
+
+    # Check if doctor is available that day
+    if weekday_key not in doctor.available_days:
+        return {"available_slots": []}
+
+    # Get all appointments already booked on this date
+    booked_times = db.query(Appointment).filter(
+        Appointment.doctor_id == doctor_id,
+        Appointment.date == target_date
+    ).all()
+
+    booked_set = set(appt.start_time.strftime("%H:%M") for appt in booked_times)
+
+    # Generate all possible slots based on doctor's schedule
+    for time_range in doctor.available_days[weekday_key]:
+        if isinstance(time_range, list) and len(time_range) == 2:
+            start_str, end_str = time_range
+            slots = generate_available_slots(start_str, end_str, doctor.slot_duration)
+            # Filter out booked ones
+            free_slots = [slot for slot in slots if slot not in booked_set]
+            available_slots.extend(free_slots)
+
+    return {"available_slots": available_slots}
