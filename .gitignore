@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite3
+.env
+
+# Node (React/Vite)
+node_modules/
+dist/
+
+# Editor/OS
+.vscode/
+.DS_Store
+
+# Logs
+logs/
