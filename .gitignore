@@ -15,3 +15,7 @@ dist/
 
 # Logs
 logs/
+
+# Google OAuth credentials
+google/credentials.json
+google/token.json
