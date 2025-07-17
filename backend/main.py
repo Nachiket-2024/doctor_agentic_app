@@ -1,12 +1,24 @@
-# --- Import FastAPI core and dependencies ---
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware  # To allow frontend-backend communication
+# --- Environment setup ---
+from dotenv import load_dotenv                      # Load environment variables from .env
+from pathlib import Path                            # Work with paths in an OS-agnostic way
 
-# --- Import environment loader ---
-from dotenv import load_dotenv  # To load .env variables
+# Calculate base directory of the project
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+_ = load_dotenv(dotenv_path=BASE_DIR / ".env")     # Load .env variables
 
-# --- Load environment variables from .env file ---
-load_dotenv()
+# --- FastAPI imports ---
+from fastapi import FastAPI, Request                # Core FastAPI imports
+from fastapi.middleware.cors import CORSMiddleware # CORS middleware for frontend-backend communication
+from fastapi.responses import JSONResponse          # To send error response for global exception handling
+
+# --- Logging setup ---
+from .logging_utils.logging_middleware import LoggingMiddleware   # Custom middleware to log every API request
+from .logging_utils.logging_config import get_logger              # JSON-formatted rotating logger
+logger = get_logger("main")                      # Create or reuse logger instance
+
+# Auth and Cookie routes
+from .auth.auth_routes import router as auth_router
+from .auth.cookie_routes import router as cookie_router
 
 # --- Import route modules ---
 from .api.doctor_routes import router as doctor_router
@@ -16,21 +28,35 @@ from .api.appointment_routes import router as appointment_router
 # --- Create the FastAPI app instance ---
 app = FastAPI()
 
+# --- Add Logging Middleware (custom logging logic) ---
+app.add_middleware(LoggingMiddleware)  # This adds the logging middleware to your app
+
+# --- Add Global Exception Handler ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled Exception at {request.url.path}: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+    )
+
 # --- Enable CORS (allow frontend to access the backend) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Use ["http://localhost:5173"] or prod URL later
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # --- Register modular routers with the app ---
+app.include_router(auth_router)         # Handles all /auth routes
+app.include_router(cookie_router)       # Handles all /cookie routes 
 app.include_router(doctor_router)       # Handles all /doctors routes
 app.include_router(appointment_router)  # Handles all /appointments routes
 app.include_router(patient_router)      # Handles all /patients routes
 
-# --- Root route for basic server health check ---
+
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Doctor Appointment Agentic API"}
+    return {"message": "Welcome to the Doctor Agentic app!"}

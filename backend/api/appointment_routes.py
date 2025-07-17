@@ -19,8 +19,8 @@ from ..schemas.appointment_schema import (
 from ..db.session import get_db  # Provides SQLAlchemy session for DB access
 
 # --- Import Google integrations ---
-from ..google.calendar_utils import create_event  # Function to create a Google Calendar event
-from ..google.email_utils import send_email_via_gmail  # Gmail API email sender
+from ..google_integration.calendar_utils import create_event  # Function to create a Google Calendar event
+from ..google_integration.email_utils import send_email_via_gmail  # Gmail API email sender
 
 # --- Define the appointment router ---
 router = APIRouter(

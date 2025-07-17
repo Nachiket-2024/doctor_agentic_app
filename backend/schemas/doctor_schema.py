@@ -1,5 +1,5 @@
 # --- Import Pydantic base class and typing tools ---
-from pydantic import BaseModel  # Base class for Pydantic models
+from pydantic import BaseModel, ConfigDict  # Base class for Pydantic models
 from typing import Annotated  # Modern way to represent optional fields
 
 # --- Base schema with common doctor fields ---
@@ -12,9 +12,14 @@ class DoctorBase(BaseModel):
 
     slot_duration: Annotated[int | None, None] = 30  # Optional slot duration in minutes (default: 30)
 
+    email: str  # Doctor's email for communication
+    phone_number: Annotated[str | None, None] = None  # Optional phone number
+    
+    google_id: Annotated[str | None, None] = None  # Google ID (optional for new doctors)
+
 # --- Schema for creating a new doctor ---
 class DoctorCreate(DoctorBase):
-    pass  # Inherits all fields from DoctorBase
+    pass  # Inherits all fields from DoctorBase, including google_id
 
 # --- Schema for updating an existing doctor (partial updates allowed) ---
 class DoctorUpdate(BaseModel):
@@ -22,10 +27,13 @@ class DoctorUpdate(BaseModel):
     specialization: Annotated[str | None, None] = None
     available_days: Annotated[dict[str, list[str]] | None, None] = None
     slot_duration: Annotated[int | None, None] = None
+    email: Annotated[str | None, None] = None
+    phone_number: Annotated[str | None, None] = None
+    google_id: Annotated[str | None, None] = None  # Allow updating google_id if needed
 
 # --- Schema for reading doctor data from the database ---
 class Doctor(DoctorBase):
     id: int  # Auto-generated doctor ID
 
-    class Config:
+    class Config(ConfigDict):
         from_attributes = True  # Enables compatibility with SQLAlchemy ORM models

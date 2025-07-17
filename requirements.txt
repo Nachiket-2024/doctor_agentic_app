@@ -9,3 +9,9 @@ google-auth-httplib2
 google-auth-oauthlib
 alembic
 pydantic-settings
+pytest
+httpx
+pytest-cov
+google-auth
+python-jose[cryptography]
+python-json-logger

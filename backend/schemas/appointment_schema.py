@@ -1,5 +1,5 @@
 # --- Import necessary classes for data validation and datetime manipulation ---
-from pydantic import BaseModel, field_validator  # For Pydantic schema models and custom validation
+from pydantic import BaseModel, field_validator, ConfigDict  # For Pydantic schema models and custom validation
 import datetime  # Use full datetime module to avoid name conflicts with 'date' or 'time'
 from typing import Annotated  # For optional field annotation (modern replacement for Optional)
 
@@ -49,5 +49,5 @@ class AppointmentUpdate(BaseModel):
 class Appointment(AppointmentBase):
     id: int  # Auto-incrementing ID of the appointment
 
-    class Config:
+    class Config(ConfigDict):
         from_attributes = True  # Enable ORM compatibility with SQLAlchemy models
