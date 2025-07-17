@@ -1,42 +1,13 @@
-# FastAPI tools to define routes (`APIRouter`), access incoming requests (`Request`),
-# raise structured HTTP errors (`HTTPException`), and use dependency injection (`Depends`)
 from fastapi import APIRouter, Request, HTTPException, Depends
-
-# Used to send 302 redirect responses — useful for Google login and frontend redirection
-from fastapi.responses import RedirectResponse
-
-# A tool to extract a Bearer token from the Authorization header.
-# Not used here directly (we use cookies), but defined for future compatibility.
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer
-
-# Provides ORM access to the database, allowing you to query and persist objects
 from sqlalchemy.orm import Session
-
-# `jwt.decode()` decodes JWTs with a given secret and algorithm.
-# `JWTError` is raised when the token is invalid, malformed, or expired.
 from jose import jwt, JWTError
-
-# Used to send HTTP requests to Google's OAuth2 endpoints (for token exchange, userinfo, etc.)
 import requests
-
-# Helper to encode query parameters into a safe URL string (e.g., for Google's login URL)
 from urllib.parse import urlencode
-
-# `cast` tells the type checker what type we're expecting (helps with IDEs, type safety).
-# `Annotated` allows attaching metadata (like `Depends` or `Cookie`) to type hints.
 from typing import cast, Annotated
-
-# Used to declare generator-type dependencies, such as for yielding DB sessions
 from collections.abc import Generator
-
-# JSONResponse is used to return structured JSON output (e.g., in `/refresh` or `/logout`)
-from fastapi.responses import JSONResponse
-
-# Generic Response object — can be used to return redirects, plain responses, etc.
-from fastapi import Response
-
-# Allows reading cookies from HTTP requests (e.g., `access_token` or `refresh_token`)
-from fastapi import Cookie
+from fastapi import Cookie, Response
 
 # Secret keys and Google OAuth credentials pulled from secure config
 from .auth_config import (
@@ -45,6 +16,7 @@ from .auth_config import (
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI,
     DOCTOR_EMAILS,
+    ADMIN_EMAILS,  # Import admin email list
 )
 
 # Access token expiry time (minutes) and algorithm used to sign JWTs (e.g., HS256)
@@ -97,10 +69,13 @@ def get_db() -> Generator[Session, None, None]:
 def assign_role_based_on_email(email: str) -> str:
     """
     Assigns a role based on the user's email:
+    - "admin" for emails in ADMIN_EMAILS
     - "doctor" for emails in DOCTOR_EMAILS
     - "patient" by default for all others
     """
-    if email in DOCTOR_EMAILS:
+    if email in ADMIN_EMAILS:
+        return "admin"
+    elif email in DOCTOR_EMAILS:
         return "doctor"
     else:
         return "patient"
@@ -191,7 +166,9 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
 
     if not doctor and not patient:
         role = assign_role_based_on_email(email)
-        if role == "doctor":
+        if role == "admin":
+            logger.info(f"Admin login: {name}, {email}")
+        elif role == "doctor":
             doctor = Doctor(google_id=google_id, email=email, name=name)
             db.add(doctor)
             db.commit()
@@ -275,7 +252,7 @@ def get_current_user_from_cookie(
         logger.error("Invalid or expired token")
         raise credentials_exc
 
-    # Query the doctor or patient from DB
+    # Query the user from DB (doctor or patient)
     doctor = db.query(Doctor).filter(Doctor.id == user_id).first()
     patient = db.query(Patient).filter(Patient.id == user_id).first()
 

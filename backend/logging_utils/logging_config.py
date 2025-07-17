@@ -12,7 +12,7 @@ ACCESS_LOG_PATH = os.path.join(LOG_DIR, 'access.log')  # For all info-level logs
 ERROR_LOG_PATH = os.path.join(LOG_DIR, 'error.log')    # For error/exception logs
 
 # --- Logger factory function ---
-def get_logger(name: str = "notation_logger") -> logging.Logger:
+def get_logger(name: str = "doctor_agentic_app_logger") -> logging.Logger:
     """
     Returns a logger that writes JSON-formatted logs to separate files:
     - error.log for ERROR, WARNING, CRITICAL activity
