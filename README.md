@@ -58,3 +58,29 @@ npm run dev
 ```
 
 ---
+
+## .env Setup
+
+Make a `.env` file at the root of the project (doctor_agentic_app) with the following content:
+
+```ini
+# Postgresql Database URL
+DATABASE_URL=postgresql://username:password@localhost:5432/doctor_agentic_db
+
+# JWT Secret Key used for signing tokens
+JWT_SECRET=jwt_secret_key_here
+
+ACCESS_TOKEN_EXPIRE_MINUTES=minutes_in_numbers_here
+REFRESH_TOKEN_EXPIRE_DAYS=time_in_days_here
+
+# Google OAuth2 Credentials
+GOOGLE_CLIENT_ID=google_client_id_here
+GOOGLE_CLIENT_SECRET=your_client_secret_here
+GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
+GOOGLE_TOKEN_FILE=token.json
+
+# Admin Email (Currently only 1 email has been used for basic and clear set up)
+ADMIN_EMAILS=admin_email_here
+```
+
+---
