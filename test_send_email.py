@@ -9,7 +9,7 @@ def test_send_email():
         'appointment_time': '10:00 AM'
     }
     
-    to_email = "cricket0188888@gmail.com"  # Replace with a real email address
+    to_email = ""  # Replace with a real email address
     
     try:
         send_email_via_gmail(to_email, "Appointment Confirmation", appointment_details)
