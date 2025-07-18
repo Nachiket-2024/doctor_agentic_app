@@ -1,49 +1,35 @@
-from fastapi import APIRouter, Request, HTTPException, Depends
-from fastapi.responses import RedirectResponse, JSONResponse
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from jose import jwt, JWTError
-import requests
-from urllib.parse import urlencode
-from typing import cast, Annotated
-from collections.abc import Generator
-from fastapi import Cookie, Response
+from fastapi import APIRouter, Request, HTTPException, Depends  # Import FastAPI components for routing and HTTP exceptions
+from fastapi.responses import RedirectResponse, JSONResponse  # Import for redirecting and JSON responses
+from fastapi.security import OAuth2PasswordBearer  # OAuth2 security dependency
+from sqlalchemy.orm import Session  # For database session management
+from jose import jwt, JWTError  # For JWT token handling
+import requests  # To make external HTTP requests (used for Google OAuth2)
+from urllib.parse import urlencode  # For encoding URL parameters
+from typing import cast, Annotated  # For type casting and annotations
+from collections.abc import Generator  # For generator types
+from fastapi import Cookie, Response  # For managing cookies in requests and responses
 
-# Secret keys and Google OAuth credentials pulled from secure config
+# Import configuration settings and environment variables
 from .auth_config import (
-    JWT_SECRET,
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    GOOGLE_REDIRECT_URI,
-    ADMIN_EMAILS,  # Import admin email list
+    JWT_SECRET,  # JWT secret key for encoding/decoding tokens
+    GOOGLE_CLIENT_ID,  # Google OAuth2 client ID
+    GOOGLE_CLIENT_SECRET,  # Google OAuth2 client secret
+    GOOGLE_REDIRECT_URI,  # Redirect URI after Google authentication
+    ADMIN_EMAILS,  # Admin emails imported from the environment
 )
+from .settings import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM  # Token expiration settings and algorithm
+from ..db.session import SessionLocal  # Database session provider
+from ..models.doctor_model import Doctor  # Import Doctor model for DB interactions
+from ..models.patient_model import Patient  # Import Patient model for DB interactions
+from .token_schema import Token  # Import token schema for JWT token response
+from .auth_schema import GoogleTokenResponse, GoogleUserInfo  # Import schema for Google response handling
+from .jwt_handler import create_access_token, create_refresh_token, decode_token  # JWT token handlers
+from .settings import REFRESH_TOKEN_EXPIRE_DAYS  # Refresh token expiration settings
 
-# Access token expiry time (minutes) and algorithm used to sign JWTs (e.g., HS256)
-from .settings import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM
-
-# Function to create a new SQLAlchemy session bound to the current DB
-from ..db.session import SessionLocal
-
-# ORM models representing a doctor and patient row in the database
-from ..models.doctor_model import Doctor
-from ..models.patient_model import Patient
-
-# Schema to return both tokens in a structured format (used in OpenAPI docs)
-from .token_schema import Token
-
-# Pydantic models to validate responses from Google's token and userinfo APIs
-from .auth_schema import GoogleTokenResponse, GoogleUserInfo
-
-# Internal utility functions for generating and decoding JWTs
-from .jwt_handler import create_access_token, create_refresh_token, decode_token
-
-# How long refresh tokens remain valid (in days)
-from .settings import REFRESH_TOKEN_EXPIRE_DAYS
-
-# Create a router to group all /auth endpoints together
+# Create a FastAPI router for authentication routes
 router = APIRouter(tags=["Auth"])
 
-# Optional: defines how to extract bearer tokens from headers (not used in this file)
+# OAuth2 password bearer for token-based authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
@@ -52,11 +38,11 @@ def get_db() -> Generator[Session, None, None]:
     Provides a database session to routes that require DB access.
     Uses a generator pattern to ensure the session is closed after the request finishes.
     """
-    db = SessionLocal()
+    db = SessionLocal()  # Create a new database session
     try:
-        yield db
+        yield db  # Yield the database session to the route function
     finally:
-        db.close()
+        db.close()  # Close the session after the request
 
 
 def assign_role_based_on_email(email: str) -> str:
@@ -66,6 +52,7 @@ def assign_role_based_on_email(email: str) -> str:
     - "doctor" for emails in DOCTOR_EMAILS
     - "patient" by default for all others
     """
+    # Check if the email is in the admin list from .env
     if email in ADMIN_EMAILS:
         return "admin"
     elif email.endswith('@doctor.com'):  # Modify this condition as needed
@@ -81,22 +68,23 @@ def login() -> RedirectResponse:
     Requests user's email, profile info, and access to Calendar and Gmail.
     """
 
+    # Build the query parameters for Google's OAuth2 login
     query_params: dict[str, str] = {
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": GOOGLE_REDIRECT_URI,
-        "response_type": "code",        # Google will return an authorization code
-        "scope": "openid email profile "  # We want identity, email, and profile
+        "response_type": "code",  # Google will return an authorization code
+        "scope": "openid email profile "
                   "https://www.googleapis.com/auth/calendar "
                   "https://www.googleapis.com/auth/gmail.readonly "
-                  "https://www.googleapis.com/auth/gmail.send",  # Add Gmail and Calendar scopes
-        "access_type": "offline",       # Needed to receive a refresh token
-        "prompt": "consent",            # Always ask the user for permission
+                  "https://www.googleapis.com/auth/gmail.send",  # Request Calendar and Gmail access
+        "access_type": "offline",  # Needed to receive a refresh token
+        "prompt": "consent",  # Always ask the user for permission
     }
 
-    # Encode the params into a full Google login URL
+    # Encode the query parameters into a URL for Google login
     auth_url: str = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(query_params)}"
 
-    # Redirect the user to Google
+    # Redirect the user to the Google login page
     return RedirectResponse(auth_url)
 
 
@@ -109,73 +97,88 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
     - Checks if doctor or patient exists in the database, creating a new one if not.
     - Sets the access and refresh tokens in secure HttpOnly cookies.
     """
-    code: str | None = request.query_params.get("code")
+    code: str | None = request.query_params.get("code")  # Extract the authorization code from the query params
     if not code:
-        raise HTTPException(status_code=400, detail="Missing authorization code")
+        raise HTTPException(status_code=400, detail="Missing authorization code")  # Raise error if code is missing
 
-    # Exchange code for tokens from Google
+    # Exchange the authorization code for tokens from Google
     token_data = {
         "code": code,
         "client_id": GOOGLE_CLIENT_ID,
         "client_secret": GOOGLE_CLIENT_SECRET,
         "redirect_uri": GOOGLE_REDIRECT_URI,
-        "grant_type": "authorization_code",
+        "grant_type": "authorization_code",  # Grant type for code exchange
     }
 
+    # Send a POST request to Google to get the tokens
     token_response = requests.post("https://oauth2.googleapis.com/token", data=token_data)
     if not token_response.ok:
-        raise HTTPException(status_code=400, detail="Failed to fetch token")
+        raise HTTPException(status_code=400, detail="Failed to fetch token")  # Raise error if token exchange fails
 
-    token_json = cast(GoogleTokenResponse, token_response.json())
+    token_json = cast(GoogleTokenResponse, token_response.json())  # Cast the response to expected schema
 
-    # Use access token to get user info
+    # Use the access token to get user information from Google
     userinfo_response = requests.get(
         "https://www.googleapis.com/oauth2/v2/userinfo",
         headers={"Authorization": f"Bearer {token_json['access_token']}"},
     )
     if not userinfo_response.ok:
-        raise HTTPException(status_code=400, detail="Failed to fetch user info")
+        raise HTTPException(status_code=400, detail="Failed to fetch user info")  # Raise error if fetching user info fails
 
-    user_info = cast(GoogleUserInfo, userinfo_response.json())
-    email = user_info.get("email")
+    user_info = cast(GoogleUserInfo, userinfo_response.json())  # Cast the user info response
+    email = user_info.get("email")  # Extract the email from the response
     if not email:
         raise HTTPException(status_code=400, detail="Email not found in Google response")
 
-    google_id = user_info.get("id")
+    google_id = user_info.get("id")  # Extract Google ID from the response
     if not google_id:
         raise HTTPException(status_code=400, detail="Google ID not found in Google response")
 
-    name = user_info.get("name", "")
+    name = user_info.get("name", "")  # Get the user's name, defaulting to an empty string
 
-    # Check if doctor or patient already exists
-    doctor = db.query(Doctor).filter(Doctor.email == email).first()
-    patient = db.query(Patient).filter(Patient.email == email).first()
+    if email in ADMIN_EMAILS:
+        # Admin login - no need to check for doctor or patient, just assign admin role
+        user_id = "admin"  # Admin will have 'admin' as the user ID
+    else:
+        # Check if doctor or patient exists in the database
+        doctor = db.query(Doctor).filter(Doctor.email == email).first()  # Search for the doctor in the database
+        patient = db.query(Patient).filter(Patient.email == email).first()  # Search for the patient in the database
 
-    if not doctor and not patient:
-        role = assign_role_based_on_email(email)
-        if role == "admin":
-            doctor = None
-            patient = None
-        elif role == "doctor":
-            doctor = Doctor(google_id=google_id, email=email, name=name)
-            db.add(doctor)
-            db.commit()
-            db.refresh(doctor)
-            patient = None
+        if not doctor and not patient:
+            role = assign_role_based_on_email(email)  # Assign role based on email
+            if role == "doctor":
+                # Create a new doctor record if not found
+                doctor = Doctor(google_id=google_id, email=email, name=name)
+                db.add(doctor)
+                db.commit()
+                db.refresh(doctor)
+                patient = None
+            elif role == "patient":
+                # Create a new patient record if not found
+                patient = Patient(google_id=google_id, email=email, name=name)
+                db.add(patient)
+                db.commit()
+                db.refresh(patient)
+                doctor = None
+
+        # Assign user_id based on doctor or patient model
+        if doctor:
+            user_id = doctor.id
+        elif patient:
+            user_id = patient.id
         else:
-            patient = Patient(google_id=google_id, email=email, name=name)
-            db.add(patient)
-            db.commit()
-            db.refresh(patient)
-            doctor = None
+            user_id = None  # This should not happen anymore for admins, because user_id is "admin"
 
+    # Creating JWT tokens for the authenticated user
+    if user_id != "admin":
+        access_token = create_access_token({"sub": str(user_id)})  # Create access token for the user
+        refresh_token = create_refresh_token({"sub": str(user_id)})  # Create refresh token for the user
+    else:
+        # Handle admin login without creating any user model
+        access_token = create_access_token({"sub": "admin"})  # Admin access token
+        refresh_token = create_refresh_token({"sub": "admin"})  # Admin refresh token
 
-    # Create access and refresh tokens
-    user_id = doctor.id if doctor else patient.id
-    access_token = create_access_token({"sub": str(user_id)})
-    refresh_token = create_refresh_token({"sub": str(user_id)})
-
-    # Redirect to frontend after login
+    # Redirect to frontend after login with the generated tokens in cookies
     response = RedirectResponse(url="http://localhost:5173/dashboard", status_code=302)
 
     # Set secure HttpOnly access token cookie
@@ -185,7 +188,7 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
         httponly=True,
         secure=True,
         samesite="lax",
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Expiry in minutes
     )
 
     # Set secure HttpOnly refresh token cookie
@@ -195,24 +198,25 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
         httponly=True,
         secure=True,
         samesite="lax",
-        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # Expiry in days
     )
 
-    return response
+    return response  # Return the response to frontend
 
 
 def get_current_user_from_cookie(
     db: Annotated[Session, Depends(get_db)],
     access_token: Annotated[str | None, Cookie()] = None,
-) -> Doctor | Patient:
+) -> Doctor | Patient | str:
     """
-    Dependency that extracts the current logged-in doctor or patient from the `access_token` cookie.
+    Dependency that extracts the current logged-in doctor, patient, or admin from the `access_token` cookie.
     - Verifies and decodes the token.
     - Extracts user ID (`sub`) and looks up the doctor or patient in the database.
+    - Allows admin access (where user_id is 'admin').
     - Raises 401 Unauthorized if anything is invalid.
     """
     if access_token is None:
-        raise HTTPException(status_code=401, detail="Access token missing")
+        raise HTTPException(status_code=401, detail="Access token missing")  # Raise error if no token provided
 
     credentials_exc = HTTPException(
         status_code=401,
@@ -231,27 +235,40 @@ def get_current_user_from_cookie(
         if not isinstance(sub, str):
             raise credentials_exc
 
-        user_id = int(sub)  # Convert to integer for DB lookup
+        user_id = sub  # Now it's a string (either 'admin' or user ID)
 
     except (JWTError, ValueError):
         raise credentials_exc
 
-    # Query the doctor or patient from DB
+    # If it's admin, don't look for a doctor or patient
+    if user_id == "admin":
+        return "admin"
+
+    # Otherwise, query the doctor or patient from DB
     doctor = db.query(Doctor).filter(Doctor.id == user_id).first()
     patient = db.query(Patient).filter(Patient.id == user_id).first()
 
     if not doctor and not patient:
         raise credentials_exc
 
-    return doctor if doctor else patient
+    return doctor if doctor else patient  # Return the authenticated user (doctor or patient)
 
 
 @router.get("/auth/me")
-def get_me(current_user: Annotated[Doctor | Patient, Depends(get_current_user_from_cookie)]) -> dict[str, str | int | None]:
+def get_me(current_user: Annotated[Doctor | Patient | str, Depends(get_current_user_from_cookie)]) -> dict[str, str | int | None]:
     """
     Returns the authenticated user's public profile (id, email, name).
     Uses the access token cookie to identify the user.
     """
+    if current_user == "admin":
+        # Admin does not have a user model, so return a predefined admin profile.
+        return {
+            "id": "admin",  # Admin doesn't have a specific ID in the DB
+            "email": ADMIN_EMAILS[0],  # You can define the admin email here
+            "name": "Admin",  # Or whatever name you want to display for the admin
+        }
+
+    # For doctor or patient, return their details as usual
     return {
         "id": current_user.id,
         "email": current_user.email,

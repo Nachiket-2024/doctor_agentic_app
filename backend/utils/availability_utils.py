@@ -1,32 +1,20 @@
-import logging
-from datetime import datetime, timedelta
-
-# Create a logger with the name 'availability_utils'
-logger = logging.getLogger("availability_utils")
-logger.setLevel(logging.DEBUG)  # Capture DEBUG and above logs
-
-# JSON format configuration (to match your existing log format)
-formatter = logging.Formatter('{"asctime": "%(asctime)s", "levelname": "%(levelname)s", "name": "%(name)s", "message": "%(message)s"}')
-
-# StreamHandler to output logs to the console
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+from datetime import datetime, timedelta  # Importing datetime for time manipulation and timedelta for time arithmetic
 
 # --- Generate time slots between start and end with given duration ---
 def generate_available_slots(start_str: str, end_str: str, slot_minutes: int) -> list[str]:
-    slots = []
-    start = datetime.strptime(start_str, "%H:%M")
-    end = datetime.strptime(end_str, "%H:%M")
+    """
+    Generates available time slots between a given start and end time with a specified duration.
+    """
+    slots = []  # Initialize an empty list to store the generated time slots
 
-    # Log slot generation attempt
-    logger.info(f"Generating slots from {start} to {end}, with {slot_minutes}-minute duration.")
+    # Convert start and end time strings to datetime objects (to work with them easily)
+    start = datetime.strptime(start_str, "%H:%M")  # Parse start time string to datetime
+    end = datetime.strptime(end_str, "%H:%M")  # Parse end time string to datetime
 
-    while start + timedelta(minutes=slot_minutes) <= end:
-        slot = start.strftime("%H:%M")
-        logger.info(f"Generated slot: {slot}")  # Logs the generated slot
-        slots.append(slot)
-        start += timedelta(minutes=slot_minutes)
+    # Loop through the time range, generating slots of the specified duration
+    while start + timedelta(minutes=slot_minutes) <= end:  # Check if the next slot fits within the end time
+        slot = start.strftime("%H:%M")  # Format the start time to a string (e.g., "14:00")
+        slots.append(slot)  # Add the formatted time slot to the list
+        start += timedelta(minutes=slot_minutes)  # Move the start time forward by the duration
 
-    return slots
+    return slots  # Return the list of generated time slots

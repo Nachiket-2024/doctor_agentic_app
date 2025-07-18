@@ -1,145 +1,146 @@
-from fastapi import APIRouter, HTTPException, Depends, Query  # Routing and exception handling
-from sqlalchemy.orm import Session  # DB session management
-from datetime import datetime  # Date and time utilities
+from fastapi import APIRouter, HTTPException, Depends, Query  # Import necessary modules for routing, exceptions, and query parameters
+from sqlalchemy.orm import Session  # For managing database sessions
+from datetime import datetime  # For date and time utilities
 
 # --- Import models and schemas ---
-from ..models.doctor_model import Doctor  # Doctor DB model
-from ..models.patient_model import Patient  # Patient DB model
-from ..models.appointment_model import Appointment  # Appointment DB model
+from ..models.doctor_model import Doctor  # Doctor DB model for doctor data
+from ..models.patient_model import Patient  # Patient DB model for patient data
+from ..models.appointment_model import Appointment  # Appointment DB model for managing appointments
 from ..schemas.doctor_schema import (
-    DoctorCreate,
-    DoctorUpdate,
-    Doctor as DoctorSchema
+    DoctorCreate,  # Schema for creating a new doctor
+    DoctorUpdate,  # Schema for updating doctor details
+    Doctor as DoctorSchema  # Schema for representing doctor in API responses
 )
 
-from ..auth.auth_config import ADMIN_EMAILS  # Import admin emails from .env file
-from ..auth.auth_routes import get_current_user_from_cookie  # Import get_current_user_from_cookie function to fetch current user
+from ..auth.auth_config import ADMIN_EMAILS  # Admin email list (imported from .env)
+from ..auth.auth_routes import get_current_user_from_cookie  # Function to get current user from cookies
 
 # --- Import database session provider ---
 from ..db.session import get_db  # SQLAlchemy session for DB access
 
 # --- Import slot generation utility ---
-from ..utils.availability_utils import generate_available_slots
+from ..utils.availability_utils import generate_available_slots  # Utility for generating available time slots for doctors
 
 # Create a router to group all /doctors endpoints together
-router = APIRouter(prefix="/doctors", tags=["Doctors"])
+router = APIRouter(prefix="/doctors", tags=["Doctors"])  # Define the base path and the tag for doctor-related routes
 
 # --- Create a new doctor (accessible only by admin) ---
-@router.post("/", response_model=DoctorSchema)
+@router.post("/", response_model=DoctorSchema)  # POST request to create a new doctor
 def create_doctor(
-    doctor: DoctorCreate, 
-    db: Session = Depends(get_db),
-    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Using get_current_user_from_cookie directly
+    doctor: DoctorCreate,  # Data model for creating a new doctor
+    db: Session = Depends(get_db),  # Dependency injection for DB session
+    current_user: Doctor | Patient | str = Depends(get_current_user_from_cookie)  # Dependency injection for current user
 ):
-    # Split the ADMIN_EMAILS string into a list and check if current_user.email is in the list
-    admin_emails = ADMIN_EMAILS.split(",")
+    # Use the first admin email from the list (since you have only one admin)
+    admin_email = ADMIN_EMAILS[0]
 
-    if current_user.email not in admin_emails:
-        raise HTTPException(status_code=403, detail="Access denied. Only admins can create doctors.")
+    # Check if current_user is the admin (i.e., 'admin' string) or if the email matches the admin's
+    if current_user == "admin" or (isinstance(current_user, Doctor) and current_user.email == admin_email):
+        db_doctor = Doctor(**doctor.model_dump())  # Create a new doctor object using the provided data
+        db.add(db_doctor)  # Add the doctor object to the DB session
+        db.commit()  # Commit the changes to the database
+        db.refresh(db_doctor)  # Refresh the DB object to get the latest state
+        return db_doctor  # Return the created doctor object
     
-    db_doctor = Doctor(**doctor.model_dump())
-    db.add(db_doctor)
-    db.commit()
-    db.refresh(db_doctor)
-    return db_doctor
+    raise HTTPException(status_code=403, detail="Access denied. Only admins can create doctors.")  # If not an admin, deny access
 
 
 # --- Get all doctors (accessible by anyone) ---
-@router.get("/", response_model=list[DoctorSchema])
+@router.get("/", response_model=list[DoctorSchema])  # GET request to fetch all doctors
 def get_doctors(db: Session = Depends(get_db), current_user: Doctor | Patient = Depends(get_current_user_from_cookie)):
-
-    doctors = db.query(Doctor).all()
-    return doctors
+    doctors = db.query(Doctor).all()  # Query the database for all doctors
+    return doctors  # Return the list of doctors
 
 
 # --- Get a doctor by ID (accessible by anyone) ---
-@router.get("/{doctor_id}", response_model=DoctorSchema)
+@router.get("/{doctor_id}", response_model=DoctorSchema)  # GET request to fetch a specific doctor by ID
 def get_doctor(
-    doctor_id: int, 
-    db: Session = Depends(get_db),
-    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Using get_current_user_from_cookie directly
+    doctor_id: int,  # The doctor ID to search for
+    db: Session = Depends(get_db),  # DB session (dependency injection)
+    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Current user (based on cookies)
 ):
-
-    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()  # Query the database for the doctor by ID
     if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")
-    return doctor
+        raise HTTPException(status_code=404, detail="Doctor not found")  # If doctor doesn't exist, raise error
+    return doctor  # Return the doctor object
 
 
 # --- Update an existing doctor (accessible only by admin) ---
-@router.put("/{doctor_id}", response_model=DoctorSchema)
+@router.put("/{doctor_id}", response_model=DoctorSchema)  # PUT request to update a doctor by ID
 def update_doctor(
-    doctor_id: int, 
-    updated: DoctorUpdate, 
-    db: Session = Depends(get_db),
-    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Using get_current_user_from_cookie directly
+    doctor_id: int,  # Doctor ID to be updated
+    updated: DoctorUpdate,  # Updated doctor data
+    db: Session = Depends(get_db),  # DB session (dependency injection)
+    current_user: Doctor | Patient | str = Depends(get_current_user_from_cookie)  # Current user (can be doctor, patient, or admin)
 ):
-    # Split the ADMIN_EMAILS string into a list and check if current_user.email is in the list
-    admin_emails = ADMIN_EMAILS.split(",")
+    # Use the first admin email from the list (since you have only one admin)
+    admin_email = ADMIN_EMAILS[0]
 
-    if current_user.email not in admin_emails:
-        raise HTTPException(status_code=403, detail="Access denied. Only admins can update doctors.")
+    # Check if current_user is the admin or if the email matches the admin's
+    if current_user == "admin" or (isinstance(current_user, Doctor) and current_user.email == admin_email):
+        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()  # Find the doctor in the DB
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")  # If doctor doesn't exist, raise error
+
+        # Update the doctor with the provided data
+        for key, value in updated.model_dump(exclude_unset=True).items():
+            setattr(doctor, key, value)  # Update doctor attributes
+
+        db.commit()  # Commit the changes to the DB
+        db.refresh(doctor)  # Refresh the doctor object to get the latest DB state
+        return doctor  # Return the updated doctor object
     
-    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")
-
-    for key, value in updated.model_dump(exclude_unset=True).items():
-        setattr(doctor, key, value)
-
-    db.commit()
-    db.refresh(doctor)
-    return doctor
+    raise HTTPException(status_code=403, detail="Access denied. Only admins can update doctors.")  # If not an admin, deny access
 
 
 # --- Delete a doctor (accessible only by admin) ---
-@router.delete("/{doctor_id}")
+@router.delete("/{doctor_id}")  # DELETE request to delete a doctor by ID
 def delete_doctor(
-    doctor_id: int, 
-    db: Session = Depends(get_db),
-    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Using get_current_user_from_cookie directly
+    doctor_id: int,  # The doctor ID to be deleted
+    db: Session = Depends(get_db),  # DB session (dependency injection)
+    current_user: Doctor | Patient | str = Depends(get_current_user_from_cookie)  # Current user (can be doctor, patient, or admin)
 ):
+    # Use the first admin email from the list (since you have only one admin)
+    admin_email = ADMIN_EMAILS[0]
 
-    # Split the ADMIN_EMAILS string into a list and check if current_user.email is in the list
-    admin_emails = ADMIN_EMAILS.split(",")
+    # Check if current_user is the admin or if the email matches the admin's
+    if current_user == "admin" or (isinstance(current_user, Doctor) and current_user.email == admin_email):
+        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()  # Find the doctor in the DB
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")  # If doctor doesn't exist, raise error
+        
+        db.delete(doctor)  # Delete the doctor from the DB session
+        db.commit()  # Commit the changes to the DB
 
-    if current_user.email not in admin_emails:
-        raise HTTPException(status_code=403, detail="Access denied. Only admins can delete doctors.")
-
-    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")
+        return {"detail": "Doctor deleted"}  # Return success message
     
-    db.delete(doctor)
-    db.commit()
-
-    return {"detail": "Doctor deleted"}
+    raise HTTPException(status_code=403, detail="Access denied. Only admins can delete doctors.")  # If not an admin, deny access
 
 
 # --- Get doctor's availability on a specific date (accessible by anyone) ---
-@router.get("/{doctor_id}/availability")
+@router.get("/{doctor_id}/availability")  # GET request to fetch availability of a doctor
 def get_doctor_availability(
-    doctor_id: int,
-    date: str = Query(..., description="Date in YYYY-MM-DD format"),
-    db: Session = Depends(get_db),
-    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Using get_current_user_from_cookie directly
+    doctor_id: int,  # The doctor ID whose availability is being queried
+    date: str = Query(..., description="Date in YYYY-MM-DD format"),  # Date query parameter in 'YYYY-MM-DD' format
+    db: Session = Depends(get_db),  # DB session (dependency injection)
+    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Current user (based on cookies)
 ):
-    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()  # Query the doctor by ID
     if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")
+        raise HTTPException(status_code=404, detail="Doctor not found")  # If doctor doesn't exist, raise error
 
     try:
-        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()  # Convert date string to datetime object
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")  # Invalid date format handling
 
-    weekday_key = target_date.strftime("%a").lower()[:3]  # e.g., 'mon', 'tue'
+    weekday_key = target_date.strftime("%a").lower()[:3]  # Get the abbreviated weekday (e.g., 'mon', 'tue')
 
-    available_slots = []
+    available_slots = []  # List to store available slots for the doctor
 
-    # Check if doctor is available that day
+    # Check if doctor is available on that day
     if weekday_key not in doctor.available_days:
-        return {"available_slots": []}
+        return {"available_slots": []}  # Return empty if doctor is not available
 
     # Get all appointments already booked on this date
     booked_times = db.query(Appointment).filter(
@@ -147,24 +148,25 @@ def get_doctor_availability(
         Appointment.date == target_date
     ).all()
 
-    booked_set = set()
+    booked_set = set()  # Set to store booked times to filter out from available slots
 
     for appt in booked_times:
-        if isinstance(appt.start_time, datetime):  # Check if it's a datetime object
-            formatted_time = appt.start_time.strftime("%H:%M")
-            booked_set.add(formatted_time)
+        if isinstance(appt.start_time, datetime):  # If start_time is datetime object
+            formatted_time = appt.start_time.strftime("%H:%M")  # Format the time
+            booked_set.add(formatted_time)  # Add to booked set
         else:
-            # Convert if needed
+            # Convert to datetime if start_time is a string
             appt.start_time = datetime.strptime(appt.start_time, "%Y-%m-%d %H:%M:%S")
             formatted_time = appt.start_time.strftime("%H:%M")
             booked_set.add(formatted_time)
 
-    # Generate all possible slots based on doctor's schedule
+    # Generate all possible slots based on doctor's availability
     for time_range in doctor.available_days[weekday_key]:
         if isinstance(time_range, list) and len(time_range) == 2:
-            start_str, end_str = time_range
-            slots = generate_available_slots(start_str, end_str, doctor.slot_duration)
-            # Filter out booked ones
+            start_str, end_str = time_range  # Get start and end times for available slots
+            slots = generate_available_slots(start_str, end_str, doctor.slot_duration)  # Generate slots
+            # Filter out already booked slots
             free_slots = [slot for slot in slots if slot not in booked_set]
-            available_slots.extend(free_slots)
-    return {"available_slots": available_slots}
+            available_slots.extend(free_slots)  # Add available slots to the list
+
+    return {"available_slots": available_slots}  # Return available slots for the doctor

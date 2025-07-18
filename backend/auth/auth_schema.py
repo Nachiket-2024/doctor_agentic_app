@@ -1,7 +1,5 @@
 # --- Typed dictionaries for OAuth and user identity structures ---
-
 from typing import TypedDict
-
 
 class GoogleTokenResponse(TypedDict):
     """
