@@ -16,5 +16,8 @@ class Doctor(Base):
     phone_number = Column(String, nullable=True)  # Optional phone number
     google_id = Column(String, unique=True, nullable=True)  # Google ID (added field)
 
+    # --- Add role to Doctor ---
+    role = Column(String, default="doctor")
+
     # --- Relationship with appointments ---
     appointments = relationship("Appointment", back_populates="doctor")  # Link to Appointment model

@@ -7,7 +7,8 @@ class PatientBase(BaseModel):
     email: str  # Email ID of the patient (must be unique)
     google_id: str  # Unique Google ID assigned to the user
     phone: Annotated[str | None, None] = None  # Optional phone number
-    age: int  # Age of the patient (provided directly)
+    age: int | None = None
+    role: str = "patient"
 
 # --- Schema for creating a new patient ---
 class PatientCreate(PatientBase):

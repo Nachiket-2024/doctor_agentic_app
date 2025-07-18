@@ -17,6 +17,8 @@ class DoctorBase(BaseModel):
     
     google_id: Annotated[str | None, None] = None  # Google ID (optional for new doctors)
 
+    role: str = "doctor"
+
 # --- Schema for creating a new doctor ---
 class DoctorCreate(DoctorBase):
     pass  # Inherits all fields from DoctorBase, including google_id

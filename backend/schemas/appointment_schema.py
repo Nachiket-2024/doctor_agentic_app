@@ -1,4 +1,3 @@
-# --- Import necessary classes for data validation and datetime manipulation ---
 from pydantic import BaseModel, field_validator, ConfigDict  # For Pydantic schema models and custom validation
 import datetime  # Use full datetime module to avoid name conflicts with 'date' or 'time'
 from typing import Annotated  # For optional field annotation (modern replacement for Optional)
@@ -16,10 +15,16 @@ class AppointmentBase(BaseModel):
     # --- Validator: automatically sets end_time = start_time + 30 minutes if not given ---
     @field_validator('end_time', mode='before')
     @classmethod
-    def ensure_end_time(cls, v, values):
-        if v is None and 'start_time' in values and 'date' in values:
-            start = datetime.datetime.combine(values['date'], values['start_time'])
-            return (start + datetime.timedelta(minutes=30)).time()
+    def ensure_end_time(cls, v, values: dict):
+        if v is None:
+            # Accessing values directly from the 'values' dictionary
+            start_time = values.get('start_time')  # Accessing values from the dict
+            date = values.get('date')
+
+            if start_time and date:
+                start = datetime.datetime.combine(date, start_time)
+                return (start + datetime.timedelta(minutes=30)).time()
+
         return v
 
 # --- Schema for creating a new appointment (used in POST) ---
@@ -36,15 +41,21 @@ class AppointmentUpdate(BaseModel):
     status: Annotated[str | None, None] = None  # Optional update to status
     reason: Annotated[str | None, None] = None  # Optional update to reason
 
-    # --- Validator: also auto-set end_time during update if missing ---
+    # --- Validator: automatically sets end_time during update if missing ---
     @field_validator('end_time', mode='before')
     @classmethod
-    def ensure_end_time(cls, v, values):
-        if v is None and 'start_time' in values and 'date' in values:
-            start = datetime.datetime.combine(values['date'], values['start_time'])
-            return (start + datetime.timedelta(minutes=30)).time()
-        return v
+    def ensure_end_time(cls, v, values: dict):
+        if v is None:
+            # Accessing values directly from the 'values' dictionary
+            start_time = values.get('start_time')  # Accessing values from the dict
+            date = values.get('date')
 
+            if start_time and date:
+                start = datetime.datetime.combine(date, start_time)
+                return (start + datetime.timedelta(minutes=30)).time()
+
+        return v
+    
 # --- Schema for reading appointment details (used in GET responses) ---
 class Appointment(AppointmentBase):
     id: int  # Auto-incrementing ID of the appointment

@@ -49,7 +49,4 @@ GOOGLE_CLIENT_SECRET: str = must_get_env("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI: str = must_get_env("GOOGLE_REDIRECT_URI")
 
 # Get Admin Emails, split by comma and strip spaces for each email
-ADMIN_EMAILS = [email.strip() for email in os.getenv("ADMIN_EMAILS", "").split(",")]
-
-# You can add similar configurations for DOCTOR_EMAILS or any other role-related emails
-DOCTOR_EMAILS = [email.strip() for email in os.getenv("DOCTOR_EMAILS", "").split(",")]
+ADMIN_EMAILS = os.getenv("ADMIN_EMAILS", "")

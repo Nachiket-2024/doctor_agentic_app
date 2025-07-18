@@ -10,7 +10,9 @@ class Patient(Base):
     email = Column(String, unique=True, index=True)  # Unique email address
     google_id = Column(String, unique=True, index=True)  # Google ID
     phone = Column(String, nullable=True)  # Optional phone number
-    age = Column(Integer)  # Age of the patient
+    age = Column(Integer, nullable=True)  # Age of the patient
+
+    role = Column(String, default="patient")  # Set role as "patient" by default
 
     # Relationship with appointments
     appointments = relationship("Appointment", back_populates="patient")  # Link to appointments

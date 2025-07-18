@@ -21,22 +21,46 @@ from ..auth.auth_config import ADMIN_EMAILS
 # Define router with prefix and tag
 router = APIRouter(prefix="/patients", tags=["Patients"])
 
-# Create a new patient (anyone can create themselves)
+# Create a new patient (admins can create any patient, patients can create their own profile)
 @router.post("/", response_model=PatientSchema)
 def create_patient(
     patient: PatientCreate, 
     db: Session = Depends(get_db), 
     current_user: Patient = Depends(get_current_user_from_cookie)
 ):
-    if current_user.role != "patient":
-        raise HTTPException(status_code=403, detail="Only patients can create their own profile.")
-    
-    # Proceed with creation of the patient
-    db_patient = Patient(**patient.model_dump())
-    db.add(db_patient)
-    db.commit()
-    db.refresh(db_patient)
-    return db_patient  # Return the created patient
+    # If the current user is an admin or the current user is creating their own profile
+    if current_user.email in ADMIN_EMAILS or current_user.id == patient.id:
+        db_patient = Patient(**patient.model_dump())
+        db.add(db_patient)
+        db.commit()
+        db.refresh(db_patient)
+        return db_patient  # Return the created patient
+    else:
+        raise HTTPException(status_code=403, detail="Access denied. You can only create your own profile.")
+
+# Update an existing patient (patients can update themselves, admins can update anyone)
+@router.put("/{patient_id}", response_model=PatientSchema)
+def update_patient(
+    patient_id: int, 
+    updated: PatientUpdate, 
+    db: Session = Depends(get_db), 
+    current_user: Patient = Depends(get_current_user_from_cookie)
+):
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    # Admins can update any patient, but a patient can only update their own profile
+    if current_user.email in ADMIN_EMAILS or current_user.id == patient_id:
+        for key, value in updated.model_dump(exclude_unset=True).items():
+            setattr(patient, key, value)
+
+        db.commit()
+        db.refresh(patient)
+        return patient  # Return updated patient
+    else:
+        raise HTTPException(status_code=403, detail="Access denied. You can only update your own profile.")
+
 
 # Get all patients (accessible by admin only)
 @router.get("/", response_model=list[PatientSchema])
@@ -44,6 +68,7 @@ def get_patients(
     db: Session = Depends(get_db), 
     current_user: Patient = Depends(get_current_user_from_cookie)
 ):
+    # Only admin can access all patient data
     if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Only admins can access all patient data.")
     
@@ -60,34 +85,11 @@ def get_patient(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    # Allow admins and doctors to view any patient, and allow the patient to view themselves
+    # Allow admins, doctors, and the patient themselves to access the record
     if current_user.email in ADMIN_EMAILS or current_user.role == "doctor" or current_user.id == patient_id:
         return patient
     else:
         raise HTTPException(status_code=403, detail="Access denied.")
-
-# Update an existing patient (patients can update themselves, admins can update anyone)
-@router.put("/{patient_id}", response_model=PatientSchema)
-def update_patient(
-    patient_id: int, 
-    updated: PatientUpdate, 
-    db: Session = Depends(get_db), 
-    current_user: Patient = Depends(get_current_user_from_cookie)
-):
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-
-    # If patient is trying to update their own record, or if admin is updating any record
-    if current_user.email in ADMIN_EMAILS or current_user.id == patient_id:
-        for key, value in updated.model_dump(exclude_unset=True).items():
-            setattr(patient, key, value)
-
-        db.commit()
-        db.refresh(patient)
-        return patient  # Return updated patient
-    else:
-        raise HTTPException(status_code=403, detail="Access denied. You can only update your own profile.")
 
 # Delete a patient by ID (only accessible by admin)
 @router.delete("/{patient_id}")

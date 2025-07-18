@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends  # For routing, exceptions, and dependency injection
 from sqlalchemy.orm import Session  # For interacting with the database
-from datetime import datetime  # For combining date and time objects
 from typing import Annotated  # For type annotations
 
 # --- Import models ---
@@ -65,7 +64,8 @@ def create_appointment(
     db.refresh(new_appointment)
 
     # Additional integrations (Google Calendar, Email) ...
-
+    # Optionally add events and emails here (e.g., create_event(), send_email_via_gmail())
+    
     return new_appointment
 
 # --- Get all appointments ---

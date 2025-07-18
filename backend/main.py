@@ -7,14 +7,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 _ = load_dotenv(dotenv_path=BASE_DIR / ".env")     # Load .env variables
 
 # --- FastAPI imports ---
-from fastapi import FastAPI, Request                # Core FastAPI imports
+from fastapi import FastAPI             # Core FastAPI imports
 from fastapi.middleware.cors import CORSMiddleware # CORS middleware for frontend-backend communication
-from fastapi.responses import JSONResponse          # To send error response for global exception handling
-
-# --- Logging setup ---
-from .logging_utils.logging_middleware import LoggingMiddleware   # Custom middleware to log every API request
-from .logging_utils.logging_config import get_logger              # JSON-formatted rotating logger
-logger = get_logger("main")                      # Create or reuse logger instance
 
 # Auth and Cookie routes
 from .auth.auth_routes import router as auth_router
@@ -27,18 +21,6 @@ from .api.appointment_routes import router as appointment_router
 
 # --- Create the FastAPI app instance ---
 app = FastAPI()
-
-# --- Add Logging Middleware (custom logging logic) ---
-app.add_middleware(LoggingMiddleware)  # This adds the logging middleware to your app
-
-# --- Add Global Exception Handler ---
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.exception(f"Unhandled Exception at {request.url.path}: {str(exc)}")
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal Server Error"},
-    )
 
 # --- Enable CORS (allow frontend to access the backend) ---
 app.add_middleware(

@@ -17,14 +17,8 @@ from .auth_constants import (
     REFRESH_TOKEN_TYPE,    # e.g., "refresh"
 )
 
-# Importing logger
-from ..logging_utils.logging_config import get_logger
-
 # Create a sub-router for cookie-based auth handling
 router = APIRouter(tags=["Cookie Auth"])
-
-# Initialize logger for this module
-logger = get_logger("cookie_routes")
 
 # Standard cookie flags reused across multiple endpoints for security consistency
 COOKIE_KWARGS = {
@@ -46,7 +40,6 @@ def refresh_token_cookie(request: Request) -> JSONResponse:
     # Get the refresh token from the request's cookies
     refresh_token = request.cookies.get(REFRESH_TOKEN_NAME)
     if not refresh_token:
-        logger.warning("Refresh token missing in the request")
         raise HTTPException(status_code=401, detail="Refresh token missing")
 
     try:
@@ -55,13 +48,11 @@ def refresh_token_cookie(request: Request) -> JSONResponse:
 
         # Check that the token type is 'refresh' (extra safety vs using access tokens)
         if payload.get("type") != REFRESH_TOKEN_TYPE:
-            logger.warning("Invalid refresh token type")
             raise HTTPException(status_code=401, detail="Invalid refresh token type")
 
         # Extract user ID (subject) from the payload
         user_id = payload.get("sub")
         if not isinstance(user_id, str):
-            logger.warning("Invalid user ID in token")
             raise HTTPException(status_code=401, detail="Invalid user ID in token")
 
         # Generate a new access token for the same user
@@ -78,12 +69,10 @@ def refresh_token_cookie(request: Request) -> JSONResponse:
             secure=True,
         )
 
-        logger.info(f"Access token refreshed for user {user_id}")
         return res
 
     # Handle invalid token formats, expiry, or tampering
     except ValueError as e:
-        logger.error(f"Error while decoding the refresh token: {str(e)}")
         raise HTTPException(status_code=401, detail=str(e))
 
 
@@ -93,8 +82,6 @@ def logout_cookie() -> JSONResponse:
     Logs the user out by deleting both access and refresh token cookies.
     This is a clean client-side logout. No backend state change is needed.
     """
-    # Log the logout request
-    logger.info("Logging out user")
 
     # Prepare the response and remove both tokens from the browser
     res = JSONResponse(content={"message": "Logged out"})
@@ -105,5 +92,4 @@ def logout_cookie() -> JSONResponse:
     # Deletes the refresh token cookie
     res.delete_cookie(REFRESH_TOKEN_NAME)
 
-    logger.info("Successfully logged out and cookies deleted")
     return res

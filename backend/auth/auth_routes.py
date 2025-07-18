@@ -15,7 +15,6 @@ from .auth_config import (
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI,
-    DOCTOR_EMAILS,
     ADMIN_EMAILS,  # Import admin email list
 )
 
@@ -41,14 +40,8 @@ from .jwt_handler import create_access_token, create_refresh_token, decode_token
 # How long refresh tokens remain valid (in days)
 from .settings import REFRESH_TOKEN_EXPIRE_DAYS
 
-# Import the logger from your logging configuration
-from ..logging_utils.logging_config import get_logger
-
 # Create a router to group all /auth endpoints together
 router = APIRouter(tags=["Auth"])
-
-# Initialize logger for this module
-logger = get_logger("auth_routes")
 
 # Optional: defines how to extract bearer tokens from headers (not used in this file)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -75,10 +68,10 @@ def assign_role_based_on_email(email: str) -> str:
     """
     if email in ADMIN_EMAILS:
         return "admin"
-    elif email in DOCTOR_EMAILS:
+    elif email.endswith('@doctor.com'):  # Modify this condition as needed
         return "doctor"
     else:
-        return "patient"
+        return "patient"  # Default to patient
 
 
 @router.get("/auth/login")
@@ -87,7 +80,6 @@ def login() -> RedirectResponse:
     Begins the OAuth2 flow by redirecting the user to Google's login page.
     Requests user's email, profile info, and access to Calendar and Gmail.
     """
-    logger.info("Redirecting user to Google login page")
 
     query_params: dict[str, str] = {
         "client_id": GOOGLE_CLIENT_ID,
@@ -119,7 +111,6 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
     """
     code: str | None = request.query_params.get("code")
     if not code:
-        logger.warning("Missing authorization code in callback")
         raise HTTPException(status_code=400, detail="Missing authorization code")
 
     # Exchange code for tokens from Google
@@ -133,7 +124,6 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
 
     token_response = requests.post("https://oauth2.googleapis.com/token", data=token_data)
     if not token_response.ok:
-        logger.error("Failed to fetch token from Google")
         raise HTTPException(status_code=400, detail="Failed to fetch token")
 
     token_json = cast(GoogleTokenResponse, token_response.json())
@@ -144,18 +134,15 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
         headers={"Authorization": f"Bearer {token_json['access_token']}"},
     )
     if not userinfo_response.ok:
-        logger.error("Failed to fetch user info from Google")
         raise HTTPException(status_code=400, detail="Failed to fetch user info")
 
     user_info = cast(GoogleUserInfo, userinfo_response.json())
     email = user_info.get("email")
     if not email:
-        logger.error("Email not found in Google response")
         raise HTTPException(status_code=400, detail="Email not found in Google response")
 
     google_id = user_info.get("id")
     if not google_id:
-        logger.error("Google ID not found in Google response")
         raise HTTPException(status_code=400, detail="Google ID not found in Google response")
 
     name = user_info.get("name", "")
@@ -167,21 +154,21 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
     if not doctor and not patient:
         role = assign_role_based_on_email(email)
         if role == "admin":
-            logger.info(f"Admin login: {name}, {email}")
+            doctor = None
+            patient = None
         elif role == "doctor":
             doctor = Doctor(google_id=google_id, email=email, name=name)
             db.add(doctor)
             db.commit()
             db.refresh(doctor)
-            logger.info(f"New doctor created: {name}, {email}")
+            patient = None
         else:
             patient = Patient(google_id=google_id, email=email, name=name)
             db.add(patient)
             db.commit()
             db.refresh(patient)
-            logger.info(f"New patient created: {name}, {email}")
-    else:
-        logger.info(f"User {name} already exists")
+            doctor = None
+
 
     # Create access and refresh tokens
     user_id = doctor.id if doctor else patient.id
@@ -211,7 +198,6 @@ def auth_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> 
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 
-    logger.info(f"User {name} logged in successfully")
     return response
 
 
@@ -226,7 +212,6 @@ def get_current_user_from_cookie(
     - Raises 401 Unauthorized if anything is invalid.
     """
     if access_token is None:
-        logger.warning("Access token missing")
         raise HTTPException(status_code=401, detail="Access token missing")
 
     credentials_exc = HTTPException(
@@ -249,18 +234,15 @@ def get_current_user_from_cookie(
         user_id = int(sub)  # Convert to integer for DB lookup
 
     except (JWTError, ValueError):
-        logger.error("Invalid or expired token")
         raise credentials_exc
 
-    # Query the user from DB (doctor or patient)
+    # Query the doctor or patient from DB
     doctor = db.query(Doctor).filter(Doctor.id == user_id).first()
     patient = db.query(Patient).filter(Patient.id == user_id).first()
 
     if not doctor and not patient:
-        logger.error(f"User not found: {user_id}")
         raise credentials_exc
 
-    logger.info(f"User {user_id} authenticated successfully")
     return doctor if doctor else patient
 
 
@@ -270,7 +252,6 @@ def get_me(current_user: Annotated[Doctor | Patient, Depends(get_current_user_fr
     Returns the authenticated user's public profile (id, email, name).
     Uses the access token cookie to identify the user.
     """
-    logger.info(f"Returning profile for user {current_user.id} ({current_user.email})")
     return {
         "id": current_user.id,
         "email": current_user.email,
@@ -288,7 +269,6 @@ def refresh_token(
     - Issues a new access token and sets it in the cookie.
     """
     if refresh_token is None:
-        logger.warning("Refresh token missing")
         raise HTTPException(status_code=401, detail="Refresh token missing")
 
     try:
@@ -297,16 +277,13 @@ def refresh_token(
 
         # Ensure it's a refresh token
         if payload.get("type") != "refresh":
-            logger.error("Invalid token type")
             raise HTTPException(status_code=401, detail="Invalid token type")
 
         user_id = payload.get("sub")
         if not isinstance(user_id, str):
-            logger.error(f"Invalid user ID in token: {user_id}")
             raise HTTPException(status_code=401, detail="Invalid user ID in token")
 
     except ValueError as e:
-        logger.error(f"ValueError: {str(e)}")
         raise HTTPException(status_code=401, detail=str(e))
 
     # Generate a new access token
@@ -323,7 +300,6 @@ def refresh_token(
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
-    logger.info(f"Access token refreshed for user {user_id}")
     return response
 
 
@@ -333,7 +309,6 @@ def logout(_: Annotated[Doctor | Patient, Depends(get_current_user_from_cookie)]
     Logs the user out by deleting both the access_token and refresh_token cookies.
     Requires the user to be currently logged in.
     """
-    logger.info(f"Logging out user {_}")
 
     response = JSONResponse(content={"message": "Logged out successfully"})
 
@@ -353,5 +328,4 @@ def logout(_: Annotated[Doctor | Patient, Depends(get_current_user_from_cookie)]
         samesite="lax",
     )
 
-    logger.info(f"User {_} logged out successfully")
     return response
