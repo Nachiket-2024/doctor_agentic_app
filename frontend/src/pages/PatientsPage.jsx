@@ -12,7 +12,6 @@ export default function PatientsPage() {
         name: "",
         email: "",
         phone: "",
-        google_id: "",
         age: null,
     }); // State for creating a new patient
 
@@ -20,7 +19,6 @@ export default function PatientsPage() {
         name: "",
         email: "",
         phone: "",
-        google_id: "",
         age: null,
     }); // State for updating an existing patient
 
@@ -53,7 +51,6 @@ export default function PatientsPage() {
                     name: "",
                     email: "",
                     phone: "",
-                    google_id: "",
                     age: null,
                 });
             })
@@ -75,7 +72,6 @@ export default function PatientsPage() {
         if (updatePatientData.name !== "") updatedData.name = updatePatientData.name;
         if (updatePatientData.email !== "") updatedData.email = updatePatientData.email;
         if (updatePatientData.phone !== "") updatedData.phone = updatePatientData.phone;
-        if (updatePatientData.google_id !== "") updatedData.google_id = updatePatientData.google_id;
         if (updatePatientData.age !== null) updatedData.age = updatePatientData.age;
 
         // Handle update API request
@@ -89,7 +85,6 @@ export default function PatientsPage() {
                     name: "",
                     email: "",
                     phone: "",
-                    google_id: "",
                     age: null,
                 });
                 setSuccessMessage("Patient updated successfully!");
@@ -194,13 +189,6 @@ export default function PatientsPage() {
                             className="p-2 border mb-2 w-full"
                         />
                         <input
-                            type="text"
-                            placeholder="Google ID (optional)"
-                            value={newPatient.google_id}
-                            onChange={(e) => setNewPatient({ ...newPatient, google_id: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
                             type="number"
                             placeholder="Age (optional)"
                             value={newPatient.age || ""}
@@ -246,13 +234,6 @@ export default function PatientsPage() {
                             placeholder="Phone Number"
                             value={updatePatientData.phone}
                             onChange={(e) => setUpdatePatientData({ ...updatePatientData, phone: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Google ID"
-                            value={updatePatientData.google_id}
-                            onChange={(e) => setUpdatePatientData({ ...updatePatientData, google_id: e.target.value })}
                             className="p-2 border mb-2 w-full"
                         />
                         <input

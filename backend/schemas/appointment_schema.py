@@ -1,8 +1,7 @@
-from pydantic import BaseModel, field_validator, ConfigDict  # For Pydantic schema models and custom validation
-import datetime  # Use full datetime module to avoid name conflicts with 'date' or 'time'
-from typing import Annotated  # For optional field annotation (modern replacement for Optional)
+from pydantic import BaseModel, field_validator, ConfigDict
+import datetime
+from typing import Annotated
 
-# --- Shared schema: base structure for appointments used across create/read ---
 class AppointmentBase(BaseModel):
     doctor_id: int  # ID of the doctor for the appointment
     patient_id: int  # ID of the patient
@@ -27,11 +26,9 @@ class AppointmentBase(BaseModel):
 
         return v
 
-# --- Schema for creating a new appointment (used in POST) ---
 class AppointmentCreate(AppointmentBase):
-    pass  # No new fields needed — same as base
+    pass  # Inherits the same structure as AppointmentBase for creating appointments
 
-# --- Schema for updating existing appointments (used in PUT/PATCH) ---
 class AppointmentUpdate(BaseModel):
     doctor_id: Annotated[int | None, None] = None  # Optional update to doctor_id
     patient_id: Annotated[int | None, None] = None  # Optional update to patient_id
@@ -41,7 +38,6 @@ class AppointmentUpdate(BaseModel):
     status: Annotated[str | None, None] = None  # Optional update to status
     reason: Annotated[str | None, None] = None  # Optional update to reason
 
-    # --- Validator: automatically sets end_time during update if missing ---
     @field_validator('end_time', mode='before')
     @classmethod
     def ensure_end_time(cls, v, values: dict):
@@ -55,8 +51,7 @@ class AppointmentUpdate(BaseModel):
                 return (start + datetime.timedelta(minutes=30)).time()
 
         return v
-    
-# --- Schema for reading appointment details (used in GET responses) ---
+
 class Appointment(AppointmentBase):
     id: int  # Auto-incrementing ID of the appointment
 

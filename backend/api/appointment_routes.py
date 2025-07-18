@@ -7,6 +7,7 @@ from datetime import datetime, timedelta  # For working with dates and times
 from ..models.appointment_model import Appointment  # Import the Appointment model for DB interaction
 from ..models.doctor_model import Doctor  # Import the Doctor model for DB interaction
 from ..models.patient_model import Patient  # Import the Patient model for DB interaction
+from ..models.doctor_availability_model import DoctorAvailability  # Import the DoctorAvailability model for DB interaction
 
 # --- Import schemas ---
 from ..schemas.appointment_schema import (
@@ -14,6 +15,7 @@ from ..schemas.appointment_schema import (
     AppointmentUpdate,  # Schema for updating appointments
     Appointment as AppointmentSchema  # Schema for representing appointments in API responses
 )
+
 
 from ..auth.auth_config import ADMIN_EMAILS  # Import admin emails from .env file
 
@@ -33,7 +35,6 @@ router = APIRouter(
     tags=["Appointments"]    # OpenAPI docs tag for appointment-related routes
 )
 
-# --- Create an appointment ---
 @router.post("/", response_model=AppointmentSchema)  # POST endpoint to create a new appointment
 def create_appointment(
     appointment: AppointmentCreate,  # Data model for appointment creation
@@ -50,14 +51,25 @@ def create_appointment(
     else:
         raise HTTPException(status_code=403, detail="You do not have permission to create appointments for others.")  # Deny access if conditions are not met
 
-    # Proceed with appointment creation
+    # Fetch doctor and check availability for the selected time
     doctor = db.query(Doctor).filter(Doctor.id == appointment.doctor_id).first()  # Query doctor by ID
     if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")  # Raise error if doctor not found
+        raise HTTPException(status_code=404, detail="Doctor not found")
 
-    patient = db.query(Patient).filter(Patient.id == appointment.patient_id).first()  # Query patient by ID
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")  # Raise error if patient not found
+    # Check if the doctor is available at the selected time slot
+    doctor_availability = db.query(DoctorAvailability).filter(
+        DoctorAvailability.doctor_id == appointment.doctor_id,
+        DoctorAvailability.date == appointment.date,
+        DoctorAvailability.slot_time == appointment.start_time,
+        DoctorAvailability.is_booked == False  # Make sure it's available
+    ).first()
+
+    if not doctor_availability:
+        raise HTTPException(status_code=400, detail="The selected time slot is not available or already booked.")
+
+    # Mark the slot as booked after the appointment is confirmed
+    doctor_availability.is_booked = True
+    db.commit()
 
     # Create the new appointment entry in the database
     new_appointment = Appointment(**appointment.model_dump())  # Create appointment object
@@ -77,31 +89,15 @@ def create_appointment(
 
         # Create a calendar event for the doctor
         event_result = create_event(
-            summary=f"Appointment with {patient.name}",
+            summary=f"Appointment with {appointment.patient_name}",
             start_time=appointment_start_time.isoformat(),
             end_time=appointment_end_time.isoformat(),
             email=doctor.email
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating calendar event: {str(e)}")  # Handle errors in calendar creation
+        raise HTTPException(status_code=500, detail=f"Error creating calendar event: {str(e)}")
 
-    # --- Gmail Integration ---
-    try:
-        # Send appointment confirmation email to the patient
-        send_email_via_gmail(
-            to_email=patient.email,
-            subject="Appointment Confirmation",
-            appointment_details={  # Email details
-                'patient_name': patient.name,
-                'doctor_name': doctor.name,
-                'appointment_date': appointment.date.strftime('%Y-%m-%d'),
-                'appointment_time': appointment.start_time.strftime('%I:%M %p')
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")  # Handle errors in email sending
-
-    return new_appointment  # Return the created appointment
+    return new_appointment
 
 
 # --- Get all appointments ---
@@ -206,7 +202,7 @@ def update_appointment(
         Updated Appointment Details:
         - Date: {updated.date.strftime('%Y-%m-%d')}
         - Time: {updated.start_time.strftime('%I:%M %p')} to {updated_end_time.strftime('%I:%M %p')}
-        
+
         If you need further assistance, please contact us.
 
         Best Regards,

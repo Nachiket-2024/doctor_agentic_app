@@ -1,11 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, Query  # Import necessary modules for routing, exceptions, and query parameters
 from sqlalchemy.orm import Session  # For managing database sessions
-from datetime import datetime  # For date and time utilities
+from datetime import date  # For working with dates
 
 # --- Import models and schemas ---
 from ..models.doctor_model import Doctor  # Doctor DB model for doctor data
 from ..models.patient_model import Patient  # Patient DB model for patient data
-from ..models.appointment_model import Appointment  # Appointment DB model for managing appointments
 from ..schemas.doctor_schema import (
     DoctorCreate,  # Schema for creating a new doctor
     DoctorUpdate,  # Schema for updating doctor details
@@ -18,8 +17,7 @@ from ..auth.auth_routes import get_current_user_from_cookie  # Function to get c
 # --- Import database session provider ---
 from ..db.session import get_db  # SQLAlchemy session for DB access
 
-# --- Import slot generation utility ---
-from ..utils.availability_utils import generate_available_slots  # Utility for generating available time slots for doctors
+from ..utils.doctor_availability_generator import get_doctor_availability  # Function to get doctor availability
 
 # Create a router to group all /doctors endpoints together
 router = APIRouter(prefix="/doctors", tags=["Doctors"])  # Define the base path and the tag for doctor-related routes
@@ -116,57 +114,21 @@ def delete_doctor(
     
     raise HTTPException(status_code=403, detail="Access denied. Only admins can delete doctors.")  # If not an admin, deny access
 
-
-# --- Get doctor's availability on a specific date (accessible by anyone) ---
-@router.get("/{doctor_id}/availability")  # GET request to fetch availability of a doctor
-def get_doctor_availability(
-    doctor_id: int,  # The doctor ID whose availability is being queried
-    date: str = Query(..., description="Date in YYYY-MM-DD format"),  # Date query parameter in 'YYYY-MM-DD' format
-    db: Session = Depends(get_db),  # DB session (dependency injection)
-    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Current user (based on cookies)
-):
-    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()  # Query the doctor by ID
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")  # If doctor doesn't exist, raise error
-
-    try:
-        target_date = datetime.strptime(date, "%Y-%m-%d").date()  # Convert date string to datetime object
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")  # Invalid date format handling
-
-    weekday_key = target_date.strftime("%a").lower()[:3]  # Get the abbreviated weekday (e.g., 'mon', 'tue')
-
-    available_slots = []  # List to store available slots for the doctor
-
-    # Check if doctor is available on that day
-    if weekday_key not in doctor.available_days:
-        return {"available_slots": []}  # Return empty if doctor is not available
-
-    # Get all appointments already booked on this date
-    booked_times = db.query(Appointment).filter(
-        Appointment.doctor_id == doctor_id,
-        Appointment.date == target_date
-    ).all()
-
-    booked_set = set()  # Set to store booked times to filter out from available slots
-
-    for appt in booked_times:
-        if isinstance(appt.start_time, datetime):  # If start_time is datetime object
-            formatted_time = appt.start_time.strftime("%H:%M")  # Format the time
-            booked_set.add(formatted_time)  # Add to booked set
-        else:
-            # Convert to datetime if start_time is a string
-            appt.start_time = datetime.strptime(appt.start_time, "%Y-%m-%d %H:%M:%S")
-            formatted_time = appt.start_time.strftime("%H:%M")
-            booked_set.add(formatted_time)
-
-    # Generate all possible slots based on doctor's availability
-    for time_range in doctor.available_days[weekday_key]:
-        if isinstance(time_range, list) and len(time_range) == 2:
-            start_str, end_str = time_range  # Get start and end times for available slots
-            slots = generate_available_slots(start_str, end_str, doctor.slot_duration)  # Generate slots
-            # Filter out already booked slots
-            free_slots = [slot for slot in slots if slot not in booked_set]
-            available_slots.extend(free_slots)  # Add available slots to the list
-
-    return {"available_slots": available_slots}  # Return available slots for the doctor
+# Route to get available slots for a doctor on a given date
+@router.get("/{doctor_id}/availability", response_model=list[str])
+def check_doctor_availability(doctor_id: int, date: date, db: Session = Depends(get_db)):
+    """
+    Get available time slots for the doctor on a given date.
+    
+    :param doctor_id: The ID of the doctor.
+    :param date: The date to check availability.
+    :param db: Database session (injected).
+    :return: List of available time slots.
+    """
+    # Call the function to get available slots
+    available_slots = get_doctor_availability(doctor_id, date, db)
+    
+    if not available_slots:
+        raise HTTPException(status_code=404, detail="No available slots found.")
+    
+    return available_slots

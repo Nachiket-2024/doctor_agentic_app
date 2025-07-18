@@ -27,9 +27,11 @@ export default function DoctorsPage() {
     }); // State for updating an existing doctor
 
     const [selectedDoctor, setSelectedDoctor] = useState(null); // Selected doctor for update
-
-    // State for controlling visibility of doctors list
     const [isDoctorsListVisible, setIsDoctorsListVisible] = useState(false);
+
+    // New state for availability
+    const [availableSlots, setAvailableSlots] = useState([]);
+    const [selectedDate, setSelectedDate] = useState("");  // To store selected date for availability query
 
     // Fetch all doctors on component mount
     useEffect(() => {
@@ -46,7 +48,6 @@ export default function DoctorsPage() {
 
     // Handle Create Doctor
     const createDoctor = () => {
-        // Format the available_days to lowercase keys (e.g., "mon", "tue")
         const formattedDays = Object.keys(newDoctor.available_days).reduce((acc, day) => {
             const lowerCaseDay = day.toLowerCase();
             acc[lowerCaseDay] = newDoctor.available_days[day];
@@ -80,16 +81,13 @@ export default function DoctorsPage() {
     const updateDoctor = () => {
         if (!selectedDoctor) return;
 
-        // Only update fields that have a new value
         const updatedData = { ...selectedDoctor };
 
-        // Check for changes in each field and only update the ones that have been filled out
         if (updateDoctorData.name !== "") updatedData.name = updateDoctorData.name;
         if (updateDoctorData.specialization !== "") updatedData.specialization = updateDoctorData.specialization;
         if (updateDoctorData.email !== "") updatedData.email = updateDoctorData.email;
         if (updateDoctorData.phone_number !== "") updatedData.phone_number = updateDoctorData.phone_number;
 
-        // Format the available_days to lowercase keys (e.g., "mon", "tue") and only update if provided
         const formattedDays = Object.keys(updateDoctorData.available_days).reduce((acc, day) => {
             const lowerCaseDay = day.toLowerCase();
             if (updateDoctorData.available_days[day]) {
@@ -100,7 +98,6 @@ export default function DoctorsPage() {
 
         if (Object.keys(formattedDays).length > 0) updatedData.available_days = formattedDays;
 
-        // Handle update API request
         axios.put(`http://localhost:8000/doctors/${selectedDoctor.id}`, updatedData, { withCredentials: true })
             .then((res) => {
                 setDoctors((prevDoctors) =>
@@ -136,6 +133,21 @@ export default function DoctorsPage() {
             });
     };
 
+    // Fetch available slots based on selected date
+    const fetchAvailableSlots = () => {
+        if (!selectedDoctor || !selectedDate) return;
+
+        axios
+            .get(`http://localhost:8000/doctors/${selectedDoctor.id}/availability?date=${selectedDate}`, { withCredentials: true })
+            .then((response) => {
+                setAvailableSlots(response.data.available_slots);
+            })
+            .catch((err) => {
+                console.error("Error fetching available slots:", err);
+                setError("Error fetching available slots.");
+            });
+    };
+
     // Show loading or error state
     if (loading) return <p>Loading doctors...</p>;
     if (error) return <p>{error}</p>;
@@ -161,17 +173,29 @@ export default function DoctorsPage() {
                             <li key={doctor.id} className="mb-2">
                                 <p><strong>{doctor.name}</strong></p>
                                 <p>{doctor.specialization}</p>
+
+                                {/* Edit button */}
                                 <button
                                     onClick={() => setSelectedDoctor(doctor)}
                                     className="mt-1 text-blue-500"
                                 >
                                     Edit
                                 </button>
+
+                                {/* Delete button */}
                                 <button
                                     onClick={() => deleteDoctor(doctor.id)}
                                     className="mt-1 ml-4 text-red-500"
                                 >
                                     Delete
+                                </button>
+
+                                {/* Check Availability button */}
+                                <button
+                                    onClick={() => setSelectedDoctor(doctor)}
+                                    className="mt-1 ml-4 text-yellow-500"
+                                >
+                                    Check Availability
                                 </button>
                             </li>
                         ))}
@@ -353,6 +377,37 @@ export default function DoctorsPage() {
                             Update Doctor
                         </button>
                     </form>
+                </div>
+            )}
+
+            {/* Availability Check Form */}
+            {selectedDoctor && (
+                <div className="mt-6">
+                    <h3 className="text-lg">Check Availability for {selectedDoctor.name}</h3>
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="p-2 border mb-2 w-full"
+                    />
+                    <button
+                        onClick={fetchAvailableSlots}
+                        className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                    >
+                        Check Availability
+                    </button>
+
+                    {/* Show available slots */}
+                    {availableSlots.length > 0 && (
+                        <div className="mt-4">
+                            <h4 className="text-lg">Available Slots</h4>
+                            <ul>
+                                {availableSlots.map((slot, index) => (
+                                    <li key={index}>{slot}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

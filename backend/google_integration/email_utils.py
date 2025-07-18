@@ -1,8 +1,6 @@
 import base64  # To encode the email message in base64, required by Gmail API
 from email.mime.text import MIMEText  # To create the email message in MIME format (plain text)
 from googleapiclient.discovery import build  # To interact with Google APIs like Gmail
-
-# --- Reuse OAuth2 creds & token.json ---
 from .calendar_utils import get_calendar_service  # Reuse OAuth2 credentials from the calendar_utils module
 
 # --- Send email using Gmail API ---
@@ -19,17 +17,17 @@ def send_email_via_gmail(to_email: str, subject: str, appointment_details: dict)
 
     # Prepare the email body with dynamic appointment details
     body = f"""
-    Dear {appointment_details['patient_name']},  # Personalized greeting for the patient
+    Dear {appointment_details['patient_name']},
 
-    Your appointment with Dr. {appointment_details['doctor_name']} has been successfully scheduled for:
+    Your appointment with {appointment_details['doctor_name']} has been successfully scheduled for:
     
-    Date: {appointment_details['appointment_date']}  # Appointment date
-    Time: {appointment_details['appointment_time']}  # Appointment time
+    Date: {appointment_details['appointment_date']} 
+    Time: {appointment_details['appointment_time']} 
 
     Please make sure to arrive 10 minutes early.
 
     Best regards,
-    Your Doctor Appointment System Team
+    Your Doctor Agentic App Team
     """
 
     # Create a MIME text email message using the body content
