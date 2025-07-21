@@ -42,6 +42,11 @@ export default function PatientsPage() {
 
     // Handle Create Patient
     const createPatient = () => {
+        if (!newPatient.name || !newPatient.email) {
+            setError("Name and email are required.");
+            return;
+        }
+
         axios.post("http://localhost:8000/patients", newPatient, { withCredentials: true })
             .then((res) => {
                 setPatients((prevPatients) => [...prevPatients, res.data]);
@@ -65,16 +70,13 @@ export default function PatientsPage() {
     const updatePatient = () => {
         if (!selectedPatient) return;
 
-        // Only update fields that have a new value
         const updatedData = { ...selectedPatient };
 
-        // Check for changes in each field and only update the ones that have been filled out
         if (updatePatientData.name !== "") updatedData.name = updatePatientData.name;
         if (updatePatientData.email !== "") updatedData.email = updatePatientData.email;
         if (updatePatientData.phone !== "") updatedData.phone = updatePatientData.phone;
         if (updatePatientData.age !== null) updatedData.age = updatePatientData.age;
 
-        // Handle update API request
         axios.put(`http://localhost:8000/patients/${selectedPatient.id}`, updatedData, { withCredentials: true })
             .then((res) => {
                 setPatients((prevPatients) =>

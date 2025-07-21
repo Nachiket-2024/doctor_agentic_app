@@ -33,6 +33,12 @@ export default function DoctorsPage() {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedDate, setSelectedDate] = useState("");  // To store selected date for availability query
 
+    // Loading states for each operation
+    const [createLoading, setCreateLoading] = useState(false);
+    const [updateLoading, setUpdateLoading] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
     // Fetch all doctors on component mount
     useEffect(() => {
         axios.get("http://localhost:8000/doctors", { withCredentials: true })
@@ -48,6 +54,12 @@ export default function DoctorsPage() {
 
     // Handle Create Doctor
     const createDoctor = () => {
+        if (!newDoctor.name || !newDoctor.specialization || !newDoctor.email) {
+            setError("Name, specialization, and email are required.");
+            return;
+        }
+
+        setCreateLoading(true);
         const formattedDays = Object.keys(newDoctor.available_days).reduce((acc, day) => {
             const lowerCaseDay = day.toLowerCase();
             acc[lowerCaseDay] = newDoctor.available_days[day];
@@ -69,11 +81,13 @@ export default function DoctorsPage() {
                     email: "",
                     phone_number: "",
                 });
+                setCreateLoading(false);
             })
             .catch((err) => {
                 console.error("Error creating doctor:", err);
                 setSuccessMessage(null);
                 setError("Error creating doctor.");
+                setCreateLoading(false);
             });
     };
 
@@ -98,6 +112,7 @@ export default function DoctorsPage() {
 
         if (Object.keys(formattedDays).length > 0) updatedData.available_days = formattedDays;
 
+        setUpdateLoading(true);
         axios.put(`http://localhost:8000/doctors/${selectedDoctor.id}`, updatedData, { withCredentials: true })
             .then((res) => {
                 setDoctors((prevDoctors) =>
@@ -113,23 +128,28 @@ export default function DoctorsPage() {
                     phone_number: "",
                 });
                 setSuccessMessage("Doctor updated successfully!");
+                setUpdateLoading(false);
             })
             .catch((err) => {
                 console.error("Error updating doctor:", err);
                 setSuccessMessage(null);
                 setError("Error updating doctor.");
+                setUpdateLoading(false);
             });
     };
 
     // Handle Delete Doctor
     const deleteDoctor = (doctorId) => {
+        setDeleteLoading(true);
         axios.delete(`http://localhost:8000/doctors/${doctorId}`, { withCredentials: true })
             .then(() => {
                 setDoctors((prevDoctors) => prevDoctors.filter((doctor) => doctor.id !== doctorId));
                 setSelectedDoctor(null);  // Reset selected doctor
+                setDeleteLoading(false);
             })
             .catch((err) => {
                 console.error("Error deleting doctor:", err);
+                setDeleteLoading(false);
             });
     };
 
@@ -137,14 +157,17 @@ export default function DoctorsPage() {
     const fetchAvailableSlots = () => {
         if (!selectedDoctor || !selectedDate) return;
 
+        setAvailabilityLoading(true);
         axios
             .get(`http://localhost:8000/doctors/${selectedDoctor.id}/availability?date=${selectedDate}`, { withCredentials: true })
             .then((response) => {
                 setAvailableSlots(response.data.available_slots);
+                setAvailabilityLoading(false);
             })
             .catch((err) => {
                 console.error("Error fetching available slots:", err);
                 setError("Error fetching available slots.");
+                setAvailabilityLoading(false);
             });
     };
 
@@ -186,8 +209,9 @@ export default function DoctorsPage() {
                                 <button
                                     onClick={() => deleteDoctor(doctor.id)}
                                     className="mt-1 ml-4 text-red-500"
+                                    disabled={deleteLoading}
                                 >
-                                    Delete
+                                    {deleteLoading ? "Deleting..." : "Delete"}
                                 </button>
 
                                 {/* Check Availability button */}
@@ -234,7 +258,7 @@ export default function DoctorsPage() {
                             className="p-2 border mb-2 w-full"
                         />
                         <input
-                            type="text"
+                            type="email"
                             placeholder="Email (required)"
                             value={newDoctor.email}
                             onChange={(e) => setNewDoctor({ ...newDoctor, email: e.target.value })}
@@ -288,8 +312,9 @@ export default function DoctorsPage() {
                         <button
                             type="submit"
                             className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                            disabled={createLoading}
                         >
-                            Create Doctor
+                            {createLoading ? "Creating..." : "Create Doctor"}
                         </button>
                     </form>
                 </div>
@@ -320,7 +345,7 @@ export default function DoctorsPage() {
                             className="p-2 border mb-2 w-full"
                         />
                         <input
-                            type="text"
+                            type="email"
                             placeholder="Email"
                             value={updateDoctorData.email}
                             onChange={(e) => setUpdateDoctorData({ ...updateDoctorData, email: e.target.value })}
@@ -373,8 +398,9 @@ export default function DoctorsPage() {
                         <button
                             type="submit"
                             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            disabled={updateLoading}
                         >
-                            Update Doctor
+                            {updateLoading ? "Updating..." : "Update Doctor"}
                         </button>
                     </form>
                 </div>
@@ -393,8 +419,9 @@ export default function DoctorsPage() {
                     <button
                         onClick={fetchAvailableSlots}
                         className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                        disabled={availabilityLoading}
                     >
-                        Check Availability
+                        {availabilityLoading ? "Checking..." : "Check Availability"}
                     </button>
 
                     {/* Show available slots */}

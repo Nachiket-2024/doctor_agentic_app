@@ -15,3 +15,4 @@ pytest-cov
 google-auth
 python-jose[cryptography]
 python-json-logger
+pydantic[email]

@@ -2,6 +2,7 @@ from pydantic import BaseModel, field_validator, ConfigDict
 import datetime
 from typing import Annotated
 
+# Base model for Appointment
 class AppointmentBase(BaseModel):
     doctor_id: int  # ID of the doctor for the appointment
     patient_id: int  # ID of the patient
@@ -26,9 +27,11 @@ class AppointmentBase(BaseModel):
 
         return v
 
+# Schema for creating appointments
 class AppointmentCreate(AppointmentBase):
     pass  # Inherits the same structure as AppointmentBase for creating appointments
 
+# Schema for updating existing appointments
 class AppointmentUpdate(BaseModel):
     doctor_id: Annotated[int | None, None] = None  # Optional update to doctor_id
     patient_id: Annotated[int | None, None] = None  # Optional update to patient_id
@@ -38,6 +41,7 @@ class AppointmentUpdate(BaseModel):
     status: Annotated[str | None, None] = None  # Optional update to status
     reason: Annotated[str | None, None] = None  # Optional update to reason
 
+    # --- Validator: automatically sets end_time = start_time + 30 minutes if not given ---
     @field_validator('end_time', mode='before')
     @classmethod
     def ensure_end_time(cls, v, values: dict):
@@ -52,8 +56,9 @@ class AppointmentUpdate(BaseModel):
 
         return v
 
-class Appointment(AppointmentBase):
+# Schema for reading appointment data (with appointment ID) for response
+class AppointmentResponse(AppointmentBase):
     id: int  # Auto-incrementing ID of the appointment
 
     class Config(ConfigDict):
-        from_attributes = True  # Enable ORM compatibility with SQLAlchemy models
+        from_attributes = True  # To allow Pydantic models to work with SQLAlchemy models

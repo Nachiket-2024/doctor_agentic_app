@@ -1,32 +1,44 @@
-import { useLocation } from "react-router-dom";  // Hook for accessing URL query params
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-// Login screen shown at /login
 function LoginPage() {
-  const location = useLocation();  // Grab current location object from React Router
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true); // Add loading state
 
-  // Check if redirected here after logout
-  const wasLoggedOut = new URLSearchParams(location.search).get("logged_out") === "true";
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      navigate("/dashboard"); // Redirect to dashboard if already logged in
+    } else {
+      setLoading(false); // Set loading to false once check is complete
+    }
+  }, [navigate]);
 
-  // Trigger backend login redirect to Google
   const handleLogin = () => {
-    window.location.replace("http://localhost:8000/auth/login");  // FastAPI → Google OAuth flow
+    window.location.href = "http://localhost:8000/auth/login"; // Redirect to backend login page (Google OAuth)
   };
 
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", marginTop: "50px" }}>
+        <h2>Checking authentication...</h2>
+      </div>
+    ); // Show loading state while checking authentication
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
-      <h1 className="text-3xl font-bold mb-6">Login to Doctor Agentic App</h1>
-
-      {/* Show success message after logout */}
-      {wasLoggedOut && (
-        <p className="mb-4 text-green-700 font-semibold">
-          You have been logged out successfully.
-        </p>
-      )}
-
-      {/* Login Button → Redirects to Google */}
+    <div style={{ textAlign: "center", marginTop: "50px" }}>
+      <h1>Login to Doctor Agentic App</h1>
       <button
         onClick={handleLogin}
-        className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-blue-700 transition"
+        style={{
+          padding: "10px 20px",
+          backgroundColor: "blue",
+          color: "white",
+          border: "none",
+          borderRadius: "5px",
+          cursor: "pointer",
+        }}
       >
         Login with Google
       </button>
@@ -34,4 +46,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;  // Export for use in router
+export default LoginPage;

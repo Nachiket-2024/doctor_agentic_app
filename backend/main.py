@@ -12,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware # CORS middleware for fronten
 
 # Auth and Cookie routes
 from .auth.auth_routes import router as auth_router
-from .auth.cookie_routes import router as cookie_router
 
 # --- Import route modules ---
 from .api.doctor_routes import router as doctor_router
@@ -33,7 +32,6 @@ app.add_middleware(
 
 # --- Register modular routers with the app ---
 app.include_router(auth_router)         # Handles all /auth routes
-app.include_router(cookie_router)       # Handles all /cookie routes 
 app.include_router(doctor_router)       # Handles all /doctors routes
 app.include_router(appointment_router)  # Handles all /appointments routes
 app.include_router(patient_router)      # Handles all /patients routes

@@ -1,5 +1,5 @@
 import os
-from dotenv import load_dotenv  # To load environment variables from .env
+from dotenv import load_dotenv
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -8,18 +8,11 @@ from google.auth.transport.requests import Request
 # Load environment variables from .env file
 load_dotenv()
 
-# SCOPES define the permissions requested from the user for Google services.
-SCOPES = [
-    'https://www.googleapis.com/auth/calendar',  # Permission to access the Google Calendar API
-    'https://www.googleapis.com/auth/gmail.send'  # Permission to send emails via Gmail API
-]
-
-# Fetch Google OAuth credentials from environment variables
+# Fetch Google OAuth credentials and SCOPES from environment variables
 CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
-
-# Token file path from the environment variable (this can remain static)
+SCOPES = os.getenv("GOOGLE_SCOPES").split(", ")
 TOKEN_FILE = os.getenv("GOOGLE_TOKEN_FILE", "token.json")  # Path to store the user's token
 
 def get_calendar_service():
@@ -78,3 +71,52 @@ def create_event(summary, start_time, end_time, email):
     # Insert the event into the primary calendar of the user
     event_result = service.events().insert(calendarId='primary', body=event).execute()
     return event_result  # Returns the created event result
+
+def update_event(appointment_id, summary, start_time, end_time, email):
+    """
+    Updates an existing Google Calendar event.
+    """
+    service = get_calendar_service()  # Get the authenticated Google Calendar service
+    
+    # Define the event structure for the update
+    event = {
+        'summary': summary,  # Updated title of the event (e.g., "Updated Appointment with John")
+        'start': {
+            'dateTime': start_time,  # Updated start date and time
+            'timeZone': 'Asia/Kolkata'  # Timezone for the event
+        },
+        'end': {
+            'dateTime': end_time,  # Updated end date and time
+            'timeZone': 'Asia/Kolkata'  # Timezone for the event
+        },
+        'attendees': [{'email': email}],  # Attendee email (Doctor or Patient)
+    }
+
+    # Fetch the event using its appointment ID (if you store the event ID in the database)
+    event_id = f"appointment-{appointment_id}"  # This could be the actual ID of the event in your DB or system
+
+    # Update the existing event using the Google Calendar API
+    event_result = service.events().update(
+        calendarId='primary',
+        eventId=event_id,
+        body=event
+    ).execute()
+    
+    return event_result  # Returns the updated event result
+
+def delete_event(appointment_id):
+    """
+    Deletes a Google Calendar event.
+    """
+    service = get_calendar_service()  # Get the authenticated Google Calendar service
+    
+    # Fetch the event using its appointment ID (if you store the event ID in the database)
+    event_id = f"appointment-{appointment_id}"  # This could be the actual ID of the event in your DB or system
+
+    # Delete the event from the Google Calendar
+    service.events().delete(
+        calendarId='primary',
+        eventId=event_id
+    ).execute()
+    
+    return {"message": "Event deleted successfully"}  # Return a success message when the event is deleted

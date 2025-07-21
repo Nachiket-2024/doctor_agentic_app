@@ -1,134 +1,142 @@
-from fastapi import APIRouter, HTTPException, Depends, Query  # Import necessary modules for routing, exceptions, and query parameters
-from sqlalchemy.orm import Session  # For managing database sessions
-from datetime import date  # For working with dates
+# Import necessary FastAPI components
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordBearer
 
-# --- Import models and schemas ---
-from ..models.doctor_model import Doctor  # Doctor DB model for doctor data
-from ..models.patient_model import Patient  # Patient DB model for patient data
-from ..schemas.doctor_schema import (
-    DoctorCreate,  # Schema for creating a new doctor
-    DoctorUpdate,  # Schema for updating doctor details
-    Doctor as DoctorSchema  # Schema for representing doctor in API responses
+# Import models
+from ..models.user_model import User
+from ..schemas.user_schema import UserCreate, UserResponse  # Import the Pydantic models
+from ..db.session import get_db
+from ..auth.auth_utils import verify_jwt_token  # JWT token verification utility
+from ..auth.auth_user_check import admin_only  # Admin-only access dependency
+
+# Initialize OAuth2PasswordBearer for token extraction
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Create the router for doctor-related routes
+router = APIRouter(
+    prefix="/doctor",  # All routes will be under /doctor
+    tags=["Doctor"],  # Tag to categorize in Swagger docs
 )
 
-from ..auth.auth_config import ADMIN_EMAILS  # Admin email list (imported from .env)
-from ..auth.auth_routes import get_current_user_from_cookie  # Function to get current user from cookies
+# ---------------------------- Route: Get Doctor Information ----------------------------
+@router.get("/{doctor_id}", response_model=UserResponse)  # Set response model
+async def get_doctor(doctor_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """
+    Get doctor details by doctor_id.
+    Accessible by all authenticated users.
+    """
+    try:
+        # Verify JWT token
+        payload = verify_jwt_token(token)
+        # Fetch the doctor by ID
+        doctor = db.query(User).filter(User.id == doctor_id, User.role == "doctor").first()
 
-# --- Import database session provider ---
-from ..db.session import get_db  # SQLAlchemy session for DB access
-
-from ..utils.doctor_availability_generator import get_doctor_availability  # Function to get doctor availability
-
-# Create a router to group all /doctors endpoints together
-router = APIRouter(prefix="/doctors", tags=["Doctors"])  # Define the base path and the tag for doctor-related routes
-
-# --- Create a new doctor (accessible only by admin) ---
-@router.post("/", response_model=DoctorSchema)  # POST request to create a new doctor
-def create_doctor(
-    doctor: DoctorCreate,  # Data model for creating a new doctor
-    db: Session = Depends(get_db),  # Dependency injection for DB session
-    current_user: Doctor | Patient | str = Depends(get_current_user_from_cookie)  # Dependency injection for current user
-):
-    # Use the first admin email from the list (since you have only one admin)
-    admin_email = ADMIN_EMAILS[0]
-
-    # Check if current_user is the admin (i.e., 'admin' string) or if the email matches the admin's
-    if current_user == "admin" or (isinstance(current_user, Doctor) and current_user.email == admin_email):
-        db_doctor = Doctor(**doctor.model_dump())  # Create a new doctor object using the provided data
-        db.add(db_doctor)  # Add the doctor object to the DB session
-        db.commit()  # Commit the changes to the database
-        db.refresh(db_doctor)  # Refresh the DB object to get the latest state
-        return db_doctor  # Return the created doctor object
-    
-    raise HTTPException(status_code=403, detail="Access denied. Only admins can create doctors.")  # If not an admin, deny access
-
-
-# --- Get all doctors (accessible by anyone) ---
-@router.get("/", response_model=list[DoctorSchema])  # GET request to fetch all doctors
-def get_doctors(db: Session = Depends(get_db), current_user: Doctor | Patient = Depends(get_current_user_from_cookie)):
-    doctors = db.query(Doctor).all()  # Query the database for all doctors
-    return doctors  # Return the list of doctors
-
-
-# --- Get a doctor by ID (accessible by anyone) ---
-@router.get("/{doctor_id}", response_model=DoctorSchema)  # GET request to fetch a specific doctor by ID
-def get_doctor(
-    doctor_id: int,  # The doctor ID to search for
-    db: Session = Depends(get_db),  # DB session (dependency injection)
-    current_user: Doctor | Patient = Depends(get_current_user_from_cookie)  # Current user (based on cookies)
-):
-    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()  # Query the database for the doctor by ID
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")  # If doctor doesn't exist, raise error
-    return doctor  # Return the doctor object
-
-
-# --- Update an existing doctor (accessible only by admin) ---
-@router.put("/{doctor_id}", response_model=DoctorSchema)  # PUT request to update a doctor by ID
-def update_doctor(
-    doctor_id: int,  # Doctor ID to be updated
-    updated: DoctorUpdate,  # Updated doctor data
-    db: Session = Depends(get_db),  # DB session (dependency injection)
-    current_user: Doctor | Patient | str = Depends(get_current_user_from_cookie)  # Current user (can be doctor, patient, or admin)
-):
-    # Use the first admin email from the list (since you have only one admin)
-    admin_email = ADMIN_EMAILS[0]
-
-    # Check if current_user is the admin or if the email matches the admin's
-    if current_user == "admin" or (isinstance(current_user, Doctor) and current_user.email == admin_email):
-        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()  # Find the doctor in the DB
         if not doctor:
-            raise HTTPException(status_code=404, detail="Doctor not found")  # If doctor doesn't exist, raise error
-
-        # Update the doctor with the provided data
-        for key, value in updated.model_dump(exclude_unset=True).items():
-            setattr(doctor, key, value)  # Update doctor attributes
-
-        db.commit()  # Commit the changes to the DB
-        db.refresh(doctor)  # Refresh the doctor object to get the latest DB state
-        return doctor  # Return the updated doctor object
-    
-    raise HTTPException(status_code=403, detail="Access denied. Only admins can update doctors.")  # If not an admin, deny access
-
-
-# --- Delete a doctor (accessible only by admin) ---
-@router.delete("/{doctor_id}")  # DELETE request to delete a doctor by ID
-def delete_doctor(
-    doctor_id: int,  # The doctor ID to be deleted
-    db: Session = Depends(get_db),  # DB session (dependency injection)
-    current_user: Doctor | Patient | str = Depends(get_current_user_from_cookie)  # Current user (can be doctor, patient, or admin)
-):
-    # Use the first admin email from the list (since you have only one admin)
-    admin_email = ADMIN_EMAILS[0]
-
-    # Check if current_user is the admin or if the email matches the admin's
-    if current_user == "admin" or (isinstance(current_user, Doctor) and current_user.email == admin_email):
-        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()  # Find the doctor in the DB
-        if not doctor:
-            raise HTTPException(status_code=404, detail="Doctor not found")  # If doctor doesn't exist, raise error
+            raise HTTPException(status_code=404, detail="Doctor not found")
         
-        db.delete(doctor)  # Delete the doctor from the DB session
-        db.commit()  # Commit the changes to the DB
+        return doctor  # Return the actual SQLAlchemy object, FastAPI will convert it to Pydantic
 
-        return {"detail": "Doctor deleted"}  # Return success message
-    
-    raise HTTPException(status_code=403, detail="Access denied. Only admins can delete doctors.")  # If not an admin, deny access
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-# Route to get available slots for a doctor on a given date
-@router.get("/{doctor_id}/availability", response_model=list[str])
-def check_doctor_availability(doctor_id: int, date: date, db: Session = Depends(get_db)):
+
+# ---------------------------- Route: Create Doctor (Admin Only) ----------------------------
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)  # Set response model
+async def create_doctor(
+    doctor: UserCreate,  # Use Pydantic schema here for request body
+    token: str = Depends(oauth2_scheme),  # JWT token for authorization
+    db: Session = Depends(get_db)  # Database session dependency
+):
     """
-    Get available time slots for the doctor on a given date.
-    
-    :param doctor_id: The ID of the doctor.
-    :param date: The date to check availability.
-    :param db: Database session (injected).
-    :return: List of available time slots.
+    Create a new doctor (admin only).
     """
-    # Call the function to get available slots
-    available_slots = get_doctor_availability(doctor_id, date, db)
-    
-    if not available_slots:
-        raise HTTPException(status_code=404, detail="No available slots found.")
-    
-    return available_slots
+    try:
+        # Check if the user is an admin
+        admin = admin_only(token, db)
+        
+        # Create and add new doctor to the database
+        new_doctor = User(
+            name=doctor.name,
+            email=doctor.email,
+            role="doctor",  # Ensure the role is 'doctor'
+            specialization=doctor.specialization,
+            available_days=doctor.available_days,
+            slot_duration=doctor.slot_duration,
+        )
+        
+        db.add(new_doctor)
+        db.commit()
+        db.refresh(new_doctor)
+
+        return new_doctor  # Return the SQLAlchemy object, FastAPI will convert it to Pydantic
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------- Route: Update Doctor (Admin Only) ----------------------------
+@router.put("/{doctor_id}", response_model=UserResponse)  # Set response model
+async def update_doctor(
+    doctor_id: int,
+    updated_doctor: UserCreate,  # Use Pydantic schema here for request body
+    token: str = Depends(oauth2_scheme),  # JWT token for authorization
+    db: Session = Depends(get_db)  # Database session dependency
+):
+    """
+    Update doctor details (admin only).
+    """
+    try:
+        # Check if the user is an admin
+        admin = admin_only(token, db)
+
+        # Fetch the existing doctor record
+        doctor = db.query(User).filter(User.id == doctor_id, User.role == "doctor").first()
+        
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        # Update doctor fields with provided data
+        doctor.name = updated_doctor.name if updated_doctor.name else doctor.name
+        doctor.email = updated_doctor.email if updated_doctor.email else doctor.email
+        doctor.specialization = updated_doctor.specialization if updated_doctor.specialization else doctor.specialization
+        doctor.available_days = updated_doctor.available_days if updated_doctor.available_days else doctor.available_days
+        doctor.slot_duration = updated_doctor.slot_duration if updated_doctor.slot_duration else doctor.slot_duration
+
+        db.commit()
+        db.refresh(doctor)
+
+        return doctor  # Return the SQLAlchemy object, FastAPI will convert it to Pydantic
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------- Route: Delete Doctor (Admin Only) ----------------------------
+@router.delete("/{doctor_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_doctor(
+    doctor_id: int,
+    token: str = Depends(oauth2_scheme),  # JWT token for authorization
+    db: Session = Depends(get_db)  # Database session dependency
+):
+    """
+    Delete doctor details (admin only).
+    """
+    try:
+        # Check if the user is an admin
+        admin = admin_only(token, db)
+
+        # Fetch the doctor record to delete
+        doctor = db.query(User).filter(User.id == doctor_id, User.role == "doctor").first()
+        
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        # Delete the doctor record
+        db.delete(doctor)
+        db.commit()
+
+        return {"message": "Doctor deleted successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

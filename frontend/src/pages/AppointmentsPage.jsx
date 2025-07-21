@@ -33,6 +33,11 @@ export default function AppointmentsPage() {
     // State for controlling visibility of appointments list
     const [isAppointmentsListVisible, setIsAppointmentsListVisible] = useState(false);
 
+    // Loading states for each operation
+    const [createLoading, setCreateLoading] = useState(false);
+    const [updateLoading, setUpdateLoading] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+
     // Fetch all appointments on component mount
     useEffect(() => {
         axios.get("http://localhost:8000/appointments", { withCredentials: true })
@@ -48,25 +53,24 @@ export default function AppointmentsPage() {
 
     // Handle Create Appointment
     const createAppointment = () => {
+        if (!newAppointment.doctor_id || !newAppointment.patient_id || !newAppointment.date || !newAppointment.start_time) {
+            setError("Doctor, patient, date, and start time are required.");
+            return;
+        }
+
+        setCreateLoading(true);
         axios.post("http://localhost:8000/appointments", newAppointment, { withCredentials: true })
             .then((res) => {
                 setAppointments((prevAppointments) => [...prevAppointments, res.data]);
                 setSuccessMessage("Appointment created successfully!");
                 setError(null);
-                setNewAppointment({
-                    doctor_id: "",
-                    patient_id: "",
-                    date: "",
-                    start_time: "",
-                    end_time: "",
-                    status: "scheduled",
-                    reason: "",
-                });
+                resetNewAppointmentForm();
+                setCreateLoading(false);
             })
             .catch((err) => {
-                console.error("Error creating appointment:", err);
                 setSuccessMessage(null);
                 setError("Error creating appointment.");
+                setCreateLoading(false);
             });
     };
 
@@ -74,10 +78,9 @@ export default function AppointmentsPage() {
     const updateAppointment = () => {
         if (!selectedAppointment) return;
 
-        // Only update fields that have a new value
         const updatedData = { ...selectedAppointment };
 
-        // Check for changes in each field and only update the ones that have been filled out
+        // Only update fields that have a new value
         if (updateAppointmentData.doctor_id !== "") updatedData.doctor_id = updateAppointmentData.doctor_id;
         if (updateAppointmentData.patient_id !== "") updatedData.patient_id = updateAppointmentData.patient_id;
         if (updateAppointmentData.date !== "") updatedData.date = updateAppointmentData.date;
@@ -86,7 +89,7 @@ export default function AppointmentsPage() {
         if (updateAppointmentData.status !== "") updatedData.status = updateAppointmentData.status;
         if (updateAppointmentData.reason !== "") updatedData.reason = updateAppointmentData.reason;
 
-        // Handle update API request
+        setUpdateLoading(true);
         axios.put(`http://localhost:8000/appointments/${selectedAppointment.id}`, updatedData, { withCredentials: true })
             .then((res) => {
                 setAppointments((prevAppointments) =>
@@ -103,24 +106,41 @@ export default function AppointmentsPage() {
                     reason: "",
                 });
                 setSuccessMessage("Appointment updated successfully!");
+                setUpdateLoading(false);
             })
             .catch((err) => {
-                console.error("Error updating appointment:", err);
                 setSuccessMessage(null);
                 setError("Error updating appointment.");
+                setUpdateLoading(false);
             });
     };
 
     // Handle Delete Appointment
     const deleteAppointment = (appointmentId) => {
+        setDeleteLoading(true);
         axios.delete(`http://localhost:8000/appointments/${appointmentId}`, { withCredentials: true })
             .then(() => {
                 setAppointments((prevAppointments) => prevAppointments.filter((appointment) => appointment.id !== appointmentId));
                 setSelectedAppointment(null);  // Reset selected appointment
+                setDeleteLoading(false);
             })
             .catch((err) => {
                 console.error("Error deleting appointment:", err);
+                setDeleteLoading(false);
             });
+    };
+
+    // Reset the form for creating new appointment
+    const resetNewAppointmentForm = () => {
+        setNewAppointment({
+            doctor_id: "",
+            patient_id: "",
+            date: "",
+            start_time: "",
+            end_time: "",
+            status: "scheduled",
+            reason: "",
+        });
     };
 
     // Show loading or error state
@@ -229,8 +249,9 @@ export default function AppointmentsPage() {
                         <button
                             type="submit"
                             className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                            disabled={createLoading}
                         >
-                            Create Appointment
+                            {createLoading ? "Creating..." : "Create Appointment"}
                         </button>
                     </form>
                 </div>
@@ -291,8 +312,9 @@ export default function AppointmentsPage() {
                         <button
                             type="submit"
                             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            disabled={updateLoading}
                         >
-                            Update Appointment
+                            {updateLoading ? "Updating..." : "Update Appointment"}
                         </button>
                     </form>
                 </div>

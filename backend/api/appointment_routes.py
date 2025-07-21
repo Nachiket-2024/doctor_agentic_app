@@ -1,245 +1,231 @@
-from fastapi import APIRouter, HTTPException, Depends  # For routing, exceptions, and dependency injection
-from sqlalchemy.orm import Session  # For interacting with the database
-from typing import Annotated  # For type annotations
-from datetime import datetime, timedelta  # For working with dates and times
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordBearer
 
-# --- Import models ---
-from ..models.appointment_model import Appointment  # Import the Appointment model for DB interaction
-from ..models.doctor_model import Doctor  # Import the Doctor model for DB interaction
-from ..models.patient_model import Patient  # Import the Patient model for DB interaction
-from ..models.doctor_availability_model import DoctorAvailability  # Import the DoctorAvailability model for DB interaction
+# Import necessary models and schemas
+from ..models.appointment_model import Appointment  # Import SQLAlchemy model
+from ..models.user_model import User  # Import User model for doctor/patient
+from ..schemas.appointment_schema import AppointmentCreate, AppointmentUpdate, AppointmentResponse  # Import Pydantic schemas
+from ..db.session import get_db
+from ..auth.auth_utils import verify_jwt_token
+from ..auth.auth_user_check import admin_only  # Admin check for restricted routes
+from ..google_integration.gmail_utils import send_email_via_gmail  # Gmail integration utility
+from ..google_integration.calendar_utils import create_event, update_event, delete_event  # Google Calendar utils
 
-# --- Import schemas ---
-from ..schemas.appointment_schema import (
-    AppointmentCreate,  # Schema for creating new appointments
-    AppointmentUpdate,  # Schema for updating appointments
-    Appointment as AppointmentSchema  # Schema for representing appointments in API responses
-)
+# Initialize OAuth2PasswordBearer for token extraction
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-
-from ..auth.auth_config import ADMIN_EMAILS  # Import admin emails from .env file
-
-# --- Import DB session dependency ---
-from ..db.session import get_db  # Provides SQLAlchemy session for DB access
-
-# --- Import Google integrations ---
-from ..google_integration.calendar_utils import create_event  # Function to create a Google Calendar event
-from ..google_integration.email_utils import send_email_via_gmail  # Gmail API email sender function
-
-# --- Import Auth utils ---
-from ..auth.auth_routes import get_current_user_from_cookie  # Auth protection for routes (fetches current user)
-
-# --- Define the appointment router ---
+# Create the router for appointment-related routes
 router = APIRouter(
-    prefix="/appointments",  # Base route prefix
-    tags=["Appointments"]    # OpenAPI docs tag for appointment-related routes
+    prefix="/appointments",  # All routes will be under /appointments
+    tags=["Appointments"],  # Tag to categorize in Swagger docs
 )
 
-@router.post("/", response_model=AppointmentSchema)  # POST endpoint to create a new appointment
-def create_appointment(
-    appointment: AppointmentCreate,  # Data model for appointment creation
-    db: Session = Depends(get_db),  # Dependency injection for database session
-    current_user: Annotated[Doctor | Patient, Depends(get_current_user_from_cookie)] = None  # Current user for auth
+# ---------------------------- Route: Get Appointment by ID ----------------------------
+
+@router.get("/{appointment_id}", response_model=AppointmentResponse)
+async def get_appointment(
+    appointment_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    # Admins can create appointments for anyone, and patients can only create appointments for themselves
-    if isinstance(current_user, Patient) and current_user.id == appointment.patient_id:
-        pass  # Proceed if the patient is creating their own appointment
-    elif isinstance(current_user, str) and current_user == "admin":
-        pass  # Admin can create any appointment
-    elif current_user.email in ADMIN_EMAILS:
-        pass  # Admin email check
-    else:
-        raise HTTPException(status_code=403, detail="You do not have permission to create appointments for others.")  # Deny access if conditions are not met
-
-    # Fetch doctor and check availability for the selected time
-    doctor = db.query(Doctor).filter(Doctor.id == appointment.doctor_id).first()  # Query doctor by ID
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")
-
-    # Check if the doctor is available at the selected time slot
-    doctor_availability = db.query(DoctorAvailability).filter(
-        DoctorAvailability.doctor_id == appointment.doctor_id,
-        DoctorAvailability.date == appointment.date,
-        DoctorAvailability.slot_time == appointment.start_time,
-        DoctorAvailability.is_booked == False  # Make sure it's available
-    ).first()
-
-    if not doctor_availability:
-        raise HTTPException(status_code=400, detail="The selected time slot is not available or already booked.")
-
-    # Mark the slot as booked after the appointment is confirmed
-    doctor_availability.is_booked = True
-    db.commit()
-
-    # Create the new appointment entry in the database
-    new_appointment = Appointment(**appointment.model_dump())  # Create appointment object
-    db.add(new_appointment)  # Add to DB session
-    db.commit()  # Commit changes to DB
-    db.refresh(new_appointment)  # Refresh to get the latest state of the object
-
-    # --- Google Calendar Integration ---
+    """
+    Get appointment details by appointment_id.
+    - Accessible by doctor for their appointments
+    - Accessible by patient for their appointments
+    - Accessible by admin for all appointments
+    """
     try:
-        # Ensure end_time is properly calculated if not passed
-        if not appointment.end_time:
-            appointment_end_time = datetime.combine(appointment.date, appointment.start_time) + timedelta(minutes=30)
+        # Verify JWT token and get the logged-in user's info
+        payload = verify_jwt_token(token)
+        user_role = payload.get("role")
+        user_id = payload.get("user_id")
+
+        # Fetch the appointment record by ID
+        appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+
+        # Admin can view all appointments
+        if user_role == "admin":
+            return appointment
+        
+        # Doctor can only view their own appointments
+        if user_role == "doctor" and appointment.doctor_id == user_id:
+            return appointment
+        
+        # Patient can only view their own appointments
+        if user_role == "patient" and appointment.patient_id == user_id:
+            return appointment
+        
+        # If user does not meet the criteria, return forbidden
+        raise HTTPException(status_code=403, detail="You are not authorized to view this appointment")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------- Route: Create Appointment ----------------------------
+
+@router.post("/", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
+async def create_appointment(
+    appointment: AppointmentCreate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new appointment.
+    - Admin or patient can create an appointment.
+    - Doctor must already be registered in the system to create appointments.
+    """
+    try:
+        # Verify JWT token and get the logged-in user's info
+        payload = verify_jwt_token(token)
+        user_role = payload.get("role")
+
+        # Ensure that the user is either an admin or a patient
+        if user_role == "admin":
+            pass
+        elif user_role == "patient":
+            doctor = db.query(User).filter(User.id == appointment.doctor_id, User.role == "doctor").first()
+            if not doctor:
+                raise HTTPException(status_code=404, detail="Doctor not found")
         else:
-            appointment_end_time = datetime.combine(appointment.date, appointment.end_time)
+            raise HTTPException(status_code=403, detail="Only admin or patient can create an appointment")
 
-        appointment_start_time = datetime.combine(appointment.date, appointment.start_time)
-
-        # Create a calendar event for the doctor
-        event_result = create_event(
-            summary=f"Appointment with {appointment.patient_name}",
-            start_time=appointment_start_time.isoformat(),
-            end_time=appointment_end_time.isoformat(),
-            email=doctor.email
+        # Create the appointment
+        new_appointment = Appointment(
+            doctor_id=appointment.doctor_id,
+            patient_id=appointment.patient_id,
+            date=appointment.date,
+            start_time=appointment.start_time,
+            end_time=appointment.end_time,
+            status=appointment.status,
+            reason=appointment.reason,
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating calendar event: {str(e)}")
 
-    return new_appointment
-
-
-# --- Get all appointments ---
-@router.get("/", response_model=list[AppointmentSchema])  # GET endpoint to fetch all appointments
-def get_appointments(
-    db: Session = Depends(get_db),  # Dependency injection for DB session
-    current_user: Annotated[Doctor | Patient, Depends(get_current_user_from_cookie)] = None  # Current user for authentication
-):
-    # Admins can view all appointments, doctors and patients can only see theirs
-    if isinstance(current_user, str) and current_user == "admin":
-        # Admin can access all appointments
-        return db.query(Appointment).all()
-    elif current_user.email in ADMIN_EMAILS:
-        # Check admin email for additional access
-        return db.query(Appointment).all()
-    elif isinstance(current_user, Doctor):
-        # Doctors can only see their own appointments
-        return db.query(Appointment).filter(Appointment.doctor_id == current_user.id).all()
-    elif isinstance(current_user, Patient):
-        # Patients can only see their own appointments
-        return db.query(Appointment).filter(Appointment.patient_id == current_user.id).all()
-
-
-# --- Get appointment by ID ---
-@router.get("/{appointment_id}", response_model=AppointmentSchema)  # GET endpoint to fetch appointment by ID
-def get_appointment(
-    appointment_id: int,  # Appointment ID parameter
-    db: Session = Depends(get_db),  # Dependency injection for DB session
-    current_user: Annotated[Doctor | Patient, Depends(get_current_user_from_cookie)] = None  # Current user for authentication
-):
-    appt = db.query(Appointment).filter(Appointment.id == appointment_id).first()  # Fetch the appointment by ID
-    if not appt:
-        raise HTTPException(status_code=404, detail="Appointment not found")  # Raise error if appointment not found
-    
-    # Admins, doctors (for their patients), and patients (for themselves) can view appointments
-    if isinstance(current_user, str) and current_user == "admin":
-        return appt
-    elif current_user.email in ADMIN_EMAILS or current_user.id == appt.doctor_id or current_user.id == appt.patient_id:
-        return appt
-    else:
-        raise HTTPException(status_code=403, detail="Access denied. You can only view your own appointments.")  # Deny access if not allowed
-
-
-@router.put("/{appointment_id}", response_model=AppointmentSchema)  # PUT endpoint to update an existing appointment
-def update_appointment(
-    appointment_id: int,  # Appointment ID to be updated
-    updated: AppointmentUpdate,  # Data model for appointment updates
-    db: Session = Depends(get_db),  # DB session dependency
-    current_user: Annotated[Doctor | Patient, Depends(get_current_user_from_cookie)] = None  # Current user for authentication
-):
-    appt = db.query(Appointment).filter(Appointment.id == appointment_id).first()  # Fetch the appointment by ID
-    if not appt:
-        raise HTTPException(status_code=404, detail="Appointment not found")  # Raise error if appointment not found
-
-    # Only allow the patient who created the appointment or the doctor for their appointment to update
-    if isinstance(current_user, str) and current_user == "admin":
-        pass  # Admin can update any appointment
-    elif current_user.email in ADMIN_EMAILS or current_user.id == appt.doctor_id or current_user.id == appt.patient_id:
-        pass  # Patients and doctors can update their own appointments
-    else:
-        raise HTTPException(status_code=403, detail="Access denied. You can only update your own appointment.")  # Deny access if not allowed
-
-    # Update the fields as per the changes in the request
-    for key, value in updated.model_dump(exclude_unset=True).items():
-        setattr(appt, key, value)
-
-    # Commit the changes to the DB
-    db.commit()
-    db.refresh(appt)
-
-    # Fetch the patient object (to access name and email)
-    patient = db.query(Patient).filter(Patient.id == appt.patient_id).first()
-
-    # --- Google Calendar Integration --- (Update the calendar event)
-    try:
-        # Ensure end_time is properly calculated if not passed
-        if not updated.end_time:
-            updated_end_time = datetime.combine(updated.date, updated.start_time) + timedelta(minutes=30)
-        else:
-            updated_end_time = datetime.combine(updated.date, updated.end_time)
-
-        updated_start_time = datetime.combine(updated.date, updated.start_time)
-
-        # Update the calendar event for the doctor if the time has changed
-        event_result = create_event(
-            summary=f"Updated Appointment with {patient.name}",
-            start_time=updated_start_time.isoformat(),
-            end_time=updated_end_time.isoformat(),
-            email=appt.doctor.email
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating calendar event: {str(e)}")  # Handle errors in calendar creation
-
-    # --- Gmail Integration --- (Send updated email confirmation)
-    try:
-        # Compose the updated email body
-        email_body = f"""
-        Dear {patient.name},
-
-        Your appointment with Dr. {appt.doctor.name} has been updated.
-
-        Updated Appointment Details:
-        - Date: {updated.date.strftime('%Y-%m-%d')}
-        - Time: {updated.start_time.strftime('%I:%M %p')} to {updated_end_time.strftime('%I:%M %p')}
-
-        If you need further assistance, please contact us.
-
-        Best Regards,
-        Your Health Team
-        """
-        send_email_via_gmail(
-            to_email=patient.email,
-            subject="Appointment Update Confirmation",
-            body=email_body  # Send updated email confirmation to patient
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error sending update email: {str(e)}")
-
-    return appt  # Return updated appointment
-
-
-# --- Delete appointment by ID ---
-@router.delete("/{appointment_id}")  # DELETE endpoint to delete an appointment by ID
-def delete_appointment(
-    appointment_id: int,  # Appointment ID to be deleted
-    db: Session = Depends(get_db),  # DB session dependency
-    current_user: Annotated[Doctor | Patient, Depends(get_current_user_from_cookie)] = None  # Current user for authentication
-):
-    appt = db.query(Appointment).filter(Appointment.id == appointment_id).first()  # Fetch the appointment by ID
-    if not appt:
-        raise HTTPException(status_code=404, detail="Appointment not found")  # Raise error if appointment not found
-
-    # Only allow admins or the doctor who created the appointment to delete it
-    if isinstance(current_user, str) and current_user == "admin":
-        # Admin can delete any appointment
-        db.delete(appt)
+        # Add and commit to the database
+        db.add(new_appointment)
         db.commit()
-        return {"detail": "Appointment deleted"}
-    elif current_user.email in ADMIN_EMAILS or current_user.id == appt.doctor_id:
-        # Admin or the doctor can delete the appointment
-        db.delete(appt)
+        db.refresh(new_appointment)
+
+        # Fetch the doctor and patient details
+        doctor = db.query(User).filter(User.id == new_appointment.doctor_id).first()
+        patient = db.query(User).filter(User.id == new_appointment.patient_id).first()
+
+        # Send email confirmation via Gmail API
+        send_email_via_gmail(patient.email, "Appointment Confirmation", new_appointment.id, db)
+
+        # Add event to Google Calendar
+        create_event(
+            f"Appointment with Dr. {doctor.name}",
+            f"{new_appointment.date}T{new_appointment.start_time}:00",
+            f"{new_appointment.date}T{new_appointment.end_time}:00",
+            patient.email
+        )
+
+        return new_appointment
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------- Route: Update Appointment ----------------------------
+
+@router.put("/{appointment_id}", response_model=AppointmentResponse)
+async def update_appointment(
+    appointment_id: int,
+    appointment_update: AppointmentUpdate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Update appointment details (admin only).
+    - Only admin can update an appointment.
+    """
+    try:
+        # Verify JWT token and get the logged-in user's info
+        admin_only(token, db)
+
+        # Fetch the existing appointment
+        appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+
+        # Update appointment fields with provided data
+        appointment.doctor_id = appointment_update.doctor_id if appointment_update.doctor_id else appointment.doctor_id
+        appointment.patient_id = appointment_update.patient_id if appointment_update.patient_id else appointment.patient_id
+        appointment.date = appointment_update.date if appointment_update.date else appointment.date
+        appointment.start_time = appointment_update.start_time if appointment_update.start_time else appointment.start_time
+        appointment.end_time = appointment_update.end_time if appointment_update.end_time else appointment.end_time
+        appointment.status = appointment_update.status if appointment_update.status else appointment.status
+        appointment.reason = appointment_update.reason if appointment_update.reason else appointment.reason
+
+        # Commit changes to DB
         db.commit()
-        return {"detail": "Appointment deleted"}
-    else:
-        raise HTTPException(status_code=403, detail="Access denied. You can only delete your own appointments.")  # Deny access if not allowed
+        db.refresh(appointment)
+
+        # Fetch the doctor and patient details
+        doctor = db.query(User).filter(User.id == appointment.doctor_id).first()
+        patient = db.query(User).filter(User.id == appointment.patient_id).first()
+
+        # Update the calendar event
+        update_event(
+            appointment_id,
+            f"Updated Appointment with Dr. {doctor.name}",
+            f"{appointment.date}T{appointment.start_time}:00",
+            f"{appointment.date}T{appointment.end_time}:00",
+            patient.email
+        )
+
+        # Send email with updated appointment details
+        send_email_via_gmail(patient.email, "Updated Appointment", appointment.id, db)
+
+        return appointment
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------- Route: Delete Appointment ----------------------------
+
+@router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_appointment(
+    appointment_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete appointment (admin only).
+    - Only admin can delete an appointment.
+    """
+    try:
+        # Verify JWT token and check if the user is an admin
+        admin_only(token, db)
+
+        # Fetch the existing appointment
+        appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+
+        # Delete the appointment from the database
+        db.delete(appointment)
+        db.commit()
+
+        # Fetch the doctor and patient details
+        doctor = db.query(User).filter(User.id == appointment.doctor_id).first()
+        patient = db.query(User).filter(User.id == appointment.patient_id).first()
+
+        # Delete the calendar event
+        delete_event(appointment_id)
+
+        # Send cancellation email to patient
+        send_email_via_gmail(patient.email, "Appointment Cancellation", appointment.id, db)
+
+        return {"message": "Appointment deleted successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
