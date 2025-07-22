@@ -16,7 +16,6 @@ import Layout from "./components/Layout";                     // Layout wrapper 
 import LoginPage from "./pages/LoginPage";                    // Public login screen
 import Dashboard from "./pages/DashboardPage";                // Dashboard page shown after login
 
-
 // --- Mount the root React app into the DOM ---
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode> {/* Enable additional checks and warnings in development */}
