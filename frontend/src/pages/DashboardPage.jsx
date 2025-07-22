@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import Cookies from "js-cookie"; // Import the js-cookie library
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -8,26 +9,22 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // State for LLM interaction
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [llmLoading, setLlmLoading] = useState(false);
-  const [llmError, setLlmError] = useState(null);
-
   // Runs once when component mounts
   useEffect(() => {
     const fetchUserInfo = async () => {
+      // Get the token and role from the URL (from the redirect after login)
       const urlParams = new URLSearchParams(window.location.search);
       const tokenFromUrl = urlParams.get("access_token");
       const roleFromUrl = urlParams.get("role");
 
+      // Store the token and role in cookies
       if (tokenFromUrl) {
-        localStorage.setItem("access_token", tokenFromUrl);
-        if (roleFromUrl) localStorage.setItem("role", roleFromUrl);
+        Cookies.set("access_token", tokenFromUrl, { expires: 7, path: "" }); // Store token in cookies for 7 days
+        if (roleFromUrl) Cookies.set("role", roleFromUrl, { expires: 7, path: "" });
         window.history.replaceState({}, "", "/dashboard");
       }
 
-      const storedToken = localStorage.getItem("access_token");
+      const storedToken = Cookies.get("access_token");
       if (!storedToken) {
         navigate("/login");
         return;
@@ -42,8 +39,8 @@ export default function Dashboard() {
 
         setUser(response.data);
       } catch (err) {
-        console.error("Token error:", err);
-        localStorage.removeItem("access_token");
+        Cookies.remove("access_token");
+        Cookies.remove("role");
         navigate("/login");
       } finally {
         setLoading(false);
@@ -55,7 +52,7 @@ export default function Dashboard() {
 
   // --- Logout handler ---
   const handleLogout = async () => {
-    const token = localStorage.getItem("access_token");
+    const token = Cookies.get("access_token");
 
     if (token) {
       try {
@@ -65,46 +62,13 @@ export default function Dashboard() {
           },
         });
 
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("role");
+        Cookies.remove("access_token");
+        Cookies.remove("role");
         setUser(null);
         navigate("/login?logged_out=true", { replace: true });
       } catch (err) {
         console.error("Logout failed:", err);
       }
-    }
-  };
-
-  // --- Handle question submission to LLM ---
-  const handleQuestionSubmit = async () => {
-    setLlmLoading(true);
-    setLlmError(null);
-
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        navigate("/login");
-        return;
-      }
-
-      const response = await axios.post(
-        "http://localhost:8000/llm/chat",
-        {
-          question, // Send only the question to the backend
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setAnswer(response.data.answer);  // Set LLM's answer to state
-    } catch (err) {
-      console.error("Error fetching LLM response:", err);
-      setLlmError("Failed to fetch answer from LLM.");
-    } finally {
-      setLlmLoading(false);
     }
   };
 
@@ -114,8 +78,8 @@ export default function Dashboard() {
   // --- Dashboard UI ---
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-2">Welcome to the Balance Sheet Dashboard!</h1>
-      <p>You are successfully logged in for Balance Sheet analysis.</p>
+      <h1 className="text-2xl font-bold mb-2">Welcome to the Doctor Agentic App!</h1>
+      <p>You are successfully logged in for Doctor Agentic App.</p>
 
       <div className="mt-4 space-y-1">
         <p>👤 <strong>{user.name}</strong></p>
@@ -130,63 +94,6 @@ export default function Dashboard() {
       >
         Logout
       </button>
-
-      {/* Navigation buttons */}
-      <div className="mt-6 space-x-4">
-        <button
-          onClick={() => navigate("/doctors")}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Manage Doctors
-        </button>
-
-        <button
-          onClick={() => navigate("/patients")}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-        >
-          Manage Patients
-        </button>
-
-        <button
-          onClick={() => navigate("/appointments")}
-          className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-        >
-          Manage Appointments
-        </button>
-      </div>
-
-      {/* LLM Chat Interface */}
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold">Ask LLM about Balance Sheets</h2>
-        <div className="mt-4">
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ask a question about the balance sheet..."
-            rows={4}
-            className="w-full p-2 border rounded-md"
-          />
-        </div>
-
-        <button
-          onClick={handleQuestionSubmit}
-          disabled={llmLoading || !question}
-          className={`mt-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 ${llmLoading || !question ? "opacity-50 cursor-not-allowed" : ""}`}
-        >
-          {llmLoading ? "Loading..." : "Ask LLM"}
-        </button>
-
-        {llmError && (
-          <div className="mt-4 text-red-600">{llmError}</div>
-        )}
-
-        {answer && (
-          <div className="mt-4 p-4 border border-gray-300 rounded-md">
-            <h3 className="font-semibold">LLM Answer:</h3>
-            <p>{answer}</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

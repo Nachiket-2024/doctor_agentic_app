@@ -1,5 +1,6 @@
 # Importing necessary SQLAlchemy classes
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
 
 # Importing Base class from the db.base module
 from ..db.base import Base
@@ -27,4 +28,3 @@ class User(Base):
     available_days = Column(String, nullable=True)  # Optional, time slots for doctors
     slot_duration = Column(Integer, nullable=True)  # Optional, slot duration for doctors
     age = Column(Integer, nullable=True)  # Optional, age for patients
-

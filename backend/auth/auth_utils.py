@@ -132,7 +132,7 @@ def authenticate_with_google(code: str, db: Session):
             user = db.query(User).filter(User.email == user_email).first()
 
             if not user:
-                # Create a new user with default role (analyst)
+                # Create a new user with default role (patient)
                 user = User(
                     name=user_name,
                     email=user_email,

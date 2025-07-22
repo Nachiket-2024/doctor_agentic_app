@@ -94,11 +94,17 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
         # Step 4: Generate a JWT token with user info
         jwt_token = create_jwt_token(user_info)
 
+        # Debug: Print the generated JWT token
+        print(f"Generated JWT Token: {jwt_token}")
+
         # Step 5: Frontend app URL to redirect to after successful login
         frontend_url = "http://localhost:5173/dashboard"  # Modify based on deployment
 
         # Step 6: Construct the redirect URL with token and role as query params
         redirect_url = f"{frontend_url}?access_token={jwt_token}&role={role}"
+
+        # Debug: Print the redirect URL
+        print(f"Redirect URL: {redirect_url}")
 
         # Step 7: Redirect to frontend with token and role
         return RedirectResponse(url=redirect_url)

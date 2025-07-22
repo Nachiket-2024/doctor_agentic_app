@@ -1,8 +1,8 @@
-// Import core React runtime and rendering logic
+// --- Import React core ---
 import React from "react";
 import ReactDOM from "react-dom/client";
 
-// React Router components for routing and navigation
+// --- Import React Router for client-side routing ---
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,46 +10,35 @@ import {
   Navigate,
 } from "react-router-dom";
 
-// Custom components
-import ProtectedRoute from "./components/ProtectedRoute"; // Guards private routes
-import Layout from "./components/Layout";                 // Shared layout with nav + meta
-import LoginPage from "./pages/LoginPage";                // Public login screen
-import Dashboard from "./pages/DashboardPage";            // Main user dashboard
-import DoctorsPage from './pages/DoctorsPage';
-import PatientsPage from './pages/PatientsPage';
-import AppointmentsPage from './pages/AppointmentsPage';
+// --- Import your custom page and component files ---
+import ProtectedRoute from "./components/ProtectedRoute";     // Component to guard protected routes
+import Layout from "./components/Layout";                     // Layout wrapper for protected pages
+import LoginPage from "./pages/LoginPage";                    // Public login screen
+import Dashboard from "./pages/DashboardPage";                // Dashboard page shown after login
 
-// Mount the root app
+
+// --- Mount the root React app into the DOM ---
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode> {/* Helps detect potential problems in development */}
-    <Router>
+  <React.StrictMode> {/* Enable additional checks and warnings in development */}
+    <Router> {/* Set up routing with React Router */}
       <Routes>
-        {/* Public route for login */}
+        {/* Public login route (does not require authentication) */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected route for authenticated areas (with nested routes inside Layout) */}
+        {/* Layout component wraps protected routes; only accessible when logged in */}
         <Route
           path="/"
           element={
-            <ProtectedRoute>
-              <Layout />
+            <ProtectedRoute> {/* This checks if user is authenticated */}
+              <Layout />      {/* Layout provides navigation/header/sidebar */}
             </ProtectedRoute>
           }
         >
-          {/* Default redirect from `/` to `/dashboard` */}
+          {/* Redirect from "/" to dashboard by default */}
           <Route index element={<Navigate to="/dashboard" replace />} />
 
-          {/* Actual dashboard page */}
+          {/* Dashboard route (inside protected layout) */}
           <Route path="dashboard" element={<Dashboard />} />
-
-          {/* Route for managing doctors */}
-          <Route path="doctors" element={<DoctorsPage />} /> {/* Add this line for doctors management */}
-
-          {/* Route for managing patients */}
-          <Route path="patients" element={<PatientsPage />} /> {/* Add this line for patients management */}
-
-          {/* Route for managing appointments */}
-          <Route path="appointments" element={<AppointmentsPage />} /> {/* Add this line for appointments management */}
 
         </Route>
       </Routes>
