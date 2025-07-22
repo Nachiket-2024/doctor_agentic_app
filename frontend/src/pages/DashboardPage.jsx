@@ -5,12 +5,14 @@ import { useNavigate, useLocation } from "react-router-dom";
 // --- Axios for making API requests ---
 import axios from "axios";
 
+// --- Dashboard Component ---
 export default function Dashboard() {
   const navigate = useNavigate();              // For redirecting the user
   const location = useLocation();              // For accessing query params
   const [user, setUser] = useState(null);      // Stores user info
   const [loading, setLoading] = useState(true); // Tracks whether data is loading
 
+  // --- Effect to fetch user info when component mounts ---
   useEffect(() => {
     const fetchUserInfo = async () => {
       // --- Read access_token and role from URL if present ---
@@ -79,6 +81,7 @@ export default function Dashboard() {
           }
         );
       } catch (err) {
+        // --- Silently fail on error ---
       } finally {
         // --- Clear session and navigate to login ---
         localStorage.removeItem("access_token");
@@ -94,10 +97,12 @@ export default function Dashboard() {
 
   // --- Main Dashboard UI once authenticated ---
   return (
-    <div className="p-4">
+    <div className="p-6 min-h-screen bg-gray-100">
+      {/* --- Header --- */}
       <h1 className="text-2xl font-bold mb-2">Welcome to the Doctor Agentic App!</h1>
       <p>You are successfully logged in for Doctor Agentic App.</p>
 
+      {/* --- User Info --- */}
       <div className="mt-4 space-y-1">
         <p>👤 <strong>{user.name}</strong></p>
         <p>📧 {user.email}</p>
@@ -111,6 +116,35 @@ export default function Dashboard() {
       >
         Logout
       </button>
+
+      {/* --- Navigation Buttons --- */}
+      <div className="mt-10 space-y-4">
+        <h2 className="text-xl font-semibold">Go to Management Pages</h2>
+
+        {/* --- Patient Page --- */}
+        <button
+          onClick={() => navigate("/patients")}
+          className="w-full md:w-64 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Patient Page
+        </button>
+
+        {/* --- Doctor Page --- */}
+        <button
+          onClick={() => navigate("/doctors")}
+          className="w-full md:w-64 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Doctor Page
+        </button>
+
+        {/* --- Appointment Page --- */}
+        <button
+          onClick={() => navigate("/appointments")}
+          className="w-full md:w-64 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+        >
+          Appointment Page
+        </button>
+      </div>
     </div>
   );
 }

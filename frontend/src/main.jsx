@@ -15,6 +15,9 @@ import ProtectedRoute from "./components/ProtectedRoute";     // Component to gu
 import Layout from "./components/Layout";                     // Layout wrapper for protected pages
 import LoginPage from "./pages/LoginPage";                    // Public login screen
 import Dashboard from "./pages/DashboardPage";                // Dashboard page shown after login
+import PatientsPage from "./pages/PatientsPage";              // Patient management page
+import DoctorsPage from "./pages/DoctorsPage";                // Doctor management page
+import AppointmentsPage from "./pages/AppointmentsPage";      // Appointment management page
 
 // --- Mount the root React app into the DOM ---
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -38,6 +41,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
           {/* Dashboard route (inside protected layout) */}
           <Route path="dashboard" element={<Dashboard />} />
+
+          {/* Patient management route (inside protected layout) */}
+          <Route path="patients" element={<PatientsPage />} />
+
+          {/* Doctor management route (inside protected layout) */}
+          <Route path="doctors" element={<DoctorsPage />} />
+
+          {/* Appointment management route (inside protected layout) */}
+          <Route path="appointments" element={<AppointmentsPage />} />
 
         </Route>
       </Routes>

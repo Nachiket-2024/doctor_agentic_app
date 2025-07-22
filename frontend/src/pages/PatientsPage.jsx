@@ -1,259 +1,234 @@
-import { useState, useEffect } from "react";
-import axios from "axios";  // For making HTTP requests
-import { useNavigate } from "react-router-dom";  // For navigation
+// --- React and hooks for state, effect, and navigation ---
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
+// --- Axios for making API requests ---
+import axios from "axios";
+
+// --- Main PatientsPage component ---
 export default function PatientsPage() {
+    const [patients, setPatients] = useState([]);              // Stores list of patients
+    const [loading, setLoading] = useState(true);              // Loading indicator for fetch
+    const [error, setError] = useState(null);                  // Error state
+    const [name, setName] = useState("");                      // Form field: patient name
+    const [email, setEmail] = useState("");                    // Form field: patient email
+    const [age, setAge] = useState("");                        // Form field: patient age
+    const [phoneNumber, setPhoneNumber] = useState("");        // Form field: patient phone number
+    const [editingPatientId, setEditingPatientId] = useState(null); // Tracks patient being edited
+
     const navigate = useNavigate();
-    const [patients, setPatients] = useState([]);   // To store patient data
-    const [loading, setLoading] = useState(true);  // To track loading state
-    const [error, setError] = useState(null);      // To track any errors
-    const [successMessage, setSuccessMessage] = useState(null); // To track success message
-    const [newPatient, setNewPatient] = useState({
-        name: "",
-        email: "",
-        phone: "",
-        age: null,
-    }); // State for creating a new patient
+    const location = useLocation();
 
-    const [updatePatientData, setUpdatePatientData] = useState({
-        name: "",
-        email: "",
-        phone: "",
-        age: null,
-    }); // State for updating an existing patient
-
-    const [selectedPatient, setSelectedPatient] = useState(null); // Selected patient for update
-
-    // State for controlling visibility of patients list
-    const [isPatientsListVisible, setIsPatientsListVisible] = useState(false);
-
-    // Fetch all patients on component mount
+    // --- Fetch patients from API when component mounts ---
     useEffect(() => {
-        axios.get("http://localhost:8000/patients", { withCredentials: true })
-            .then((res) => {
-                setPatients(res.data);
-                setLoading(false);
-            })
-            .catch((err) => {
-                setError("Error fetching patients");
-                setLoading(false);
-            });
-    }, []);
+        const fetchPatients = async () => {
+            const token = localStorage.getItem("access_token");    // Use correct token key
 
-    // Handle Create Patient
-    const createPatient = () => {
-        if (!newPatient.name || !newPatient.email) {
-            setError("Name and email are required.");
-            return;
-        }
+            if (!token) {
+                navigate("/login");
+                return;
+            }
 
-        axios.post("http://localhost:8000/patients", newPatient, { withCredentials: true })
-            .then((res) => {
-                setPatients((prevPatients) => [...prevPatients, res.data]);
-                setSuccessMessage("Patient created successfully!");
+            try {
+                const response = await axios.get("http://localhost:8000/patient/", {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                // Normalize null fields for display
+                const cleaned = response.data.map((p) => ({
+                    ...p,
+                    age: p.age ?? "N/A",
+                    phone_number: p.phone_number ?? "N/A",
+                    google_id: p.google_id ?? "N/A",
+                    specialization: p.specialization ?? "N/A",
+                    available_days: p.available_days ?? "N/A",
+                    slot_duration: p.slot_duration ?? "N/A",
+                }));
+
+                setPatients(cleaned);
                 setError(null);
-                setNewPatient({
-                    name: "",
-                    email: "",
-                    phone: "",
-                    age: null,
+            } catch (err) {
+                console.error("Failed to fetch patients:", err);
+                setError("Could not load patients.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchPatients();
+    }, [navigate]);
+
+    // --- Create or update patient based on editing state ---
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem("access_token");      // Use correct token key
+
+        const payload = {
+            name,
+            email,
+            role: "patient",
+            age: age.trim() === "" ? null : parseInt(age),
+            phone_number: phoneNumber.trim() === "" ? null : phoneNumber,
+        };
+
+        try {
+            if (editingPatientId) {
+                await axios.put(`http://localhost:8000/patient/${editingPatientId}`, payload, {
+                    headers: { Authorization: `Bearer ${token}` },
                 });
-            })
-            .catch((err) => {
-                console.error("Error creating patient:", err);
-                setSuccessMessage(null);
-                setError("Error creating patient.");
-            });
-    };
 
-    // Handle Update Patient
-    const updatePatient = () => {
-        if (!selectedPatient) return;
-
-        const updatedData = { ...selectedPatient };
-
-        if (updatePatientData.name !== "") updatedData.name = updatePatientData.name;
-        if (updatePatientData.email !== "") updatedData.email = updatePatientData.email;
-        if (updatePatientData.phone !== "") updatedData.phone = updatePatientData.phone;
-        if (updatePatientData.age !== null) updatedData.age = updatePatientData.age;
-
-        axios.put(`http://localhost:8000/patients/${selectedPatient.id}`, updatedData, { withCredentials: true })
-            .then((res) => {
-                setPatients((prevPatients) =>
-                    prevPatients.map((patient) => (patient.id === selectedPatient.id ? res.data : patient))
+                setPatients((prev) =>
+                    prev.map((p) => (p.id === editingPatientId ? { ...p, ...payload } : p))
                 );
-                setSelectedPatient(null);
-                setUpdatePatientData({
-                    name: "",
-                    email: "",
-                    phone: "",
-                    age: null,
+            } else {
+                const response = await axios.post("http://localhost:8000/patient/", payload, {
+                    headers: { Authorization: `Bearer ${token}` },
                 });
-                setSuccessMessage("Patient updated successfully!");
-            })
-            .catch((err) => {
-                console.error("Error updating patient:", err);
-                setSuccessMessage(null);
-                setError("Error updating patient.");
-            });
+
+                const patient = {
+                    ...response.data,
+                    age: response.data.age ?? "N/A",
+                    phone_number: response.data.phone_number ?? "N/A",
+                    google_id: response.data.google_id ?? "N/A",
+                    specialization: response.data.specialization ?? "N/A",
+                    available_days: response.data.available_days ?? "N/A",
+                    slot_duration: response.data.slot_duration ?? "N/A",
+                };
+
+                setPatients((prev) => [...prev, patient]);
+            }
+            resetForm();
+        } catch (err) {
+            console.error("Save failed:", err);
+            alert("Failed to save patient.");
+        }
     };
 
-    // Handle Delete Patient
-    const deletePatient = (patientId) => {
-        axios.delete(`http://localhost:8000/patients/${patientId}`, { withCredentials: true })
-            .then(() => {
-                setPatients((prevPatients) => prevPatients.filter((patient) => patient.id !== patientId));
-                setSelectedPatient(null);  // Reset selected patient
-            })
-            .catch((err) => {
-                console.error("Error deleting patient:", err);
-            });
+    // --- Populate form fields for editing ---
+    const handleEditPatient = (patient) => {
+        setEditingPatientId(patient.id);
+        setName(patient.name || "");
+        setEmail(patient.email || "");
+        setAge(patient.age !== "N/A" ? patient.age.toString() : "");
+        setPhoneNumber(patient.phone_number !== "N/A" ? patient.phone_number : "");
     };
 
-    // Show loading or error state
-    if (loading) return <p>Loading patients...</p>;
-    if (error) return <p>{error}</p>;
+    // --- Delete a patient ---
+    const handleDeletePatient = async (patientId) => {
+        if (!window.confirm("Are you sure you want to delete this patient?")) return;
+        try {
+            const token = localStorage.getItem("access_token");    // Use correct token key
+            await axios.delete(`http://localhost:8000/patient/${patientId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setPatients((prev) => prev.filter((p) => p.id !== patientId));
+        } catch (err) {
+            console.error("Delete failed:", err);
+            alert("Failed to delete patient.");
+        }
+    };
 
+    // --- Reset form fields ---
+    const resetForm = () => {
+        setName("");
+        setEmail("");
+        setAge("");
+        setPhoneNumber("");
+        setEditingPatientId(null);
+    };
+
+    // --- Render component ---
     return (
-        <div className="p-4">
-            <h1 className="text-2xl font-bold mb-2">Manage Patients</h1>
+        <div className="p-6">
+            <h1 className="text-2xl font-bold mb-4">Patients</h1>
 
-            {/* Toggle button for patient list visibility */}
-            <button
-                onClick={() => setIsPatientsListVisible(!isPatientsListVisible)}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-                {isPatientsListVisible ? "Hide Patients List" : "Show Patients List"}
-            </button>
-
-            {/* List of patients (conditionally rendered based on visibility state) */}
-            {isPatientsListVisible && (
-                <div>
-                    <h2 className="text-xl font-semibold mt-4">Patients List</h2>
-                    <ul>
-                        {patients.map((patient) => (
-                            <li key={patient.id} className="mb-2">
-                                <p><strong>{patient.name}</strong></p>
-                                <p>{patient.email}</p>
-                                <button
-                                    onClick={() => setSelectedPatient(patient)}
-                                    className="mt-1 text-blue-500"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={() => deletePatient(patient.id)}
-                                    className="mt-1 ml-4 text-red-500"
-                                >
-                                    Delete
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
+            {/* --- Create/Edit Form --- */}
+            <form onSubmit={handleSubmit} className="mb-6 space-y-4 max-w-md">
+                <h2 className="text-lg font-semibold">
+                    {editingPatientId ? "Edit Patient" : "Create New Patient"}
+                </h2>
+                <input
+                    type="text"
+                    placeholder="Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className="w-full border border-gray-300 px-3 py-2 rounded"
+                />
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-full border border-gray-300 px-3 py-2 rounded"
+                />
+                <input
+                    type="number"
+                    placeholder="Age"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="w-full border border-gray-300 px-3 py-2 rounded"
+                />
+                <input
+                    type="text"
+                    placeholder="Phone Number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="w-full border border-gray-300 px-3 py-2 rounded"
+                />
+                <div className="space-x-2">
+                    <button
+                        type="submit"
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                        {editingPatientId ? "Update" : "Create"}
+                    </button>
+                    {editingPatientId && (
+                        <button
+                            type="button"
+                            onClick={resetForm}
+                            className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded"
+                        >
+                            Cancel
+                        </button>
+                    )}
                 </div>
-            )}
+            </form>
 
-            {/* Success or Error message */}
-            {successMessage && <p className="text-green-500">{successMessage}</p>}
+            {/* --- Conditional UI --- */}
+            {loading && <p>Loading patients...</p>}
             {error && <p className="text-red-500">{error}</p>}
-
-            {/* Create New Patient Form */}
-            {!selectedPatient && (
-                <div className="mt-6">
-                    <h3 className="text-lg">Create New Patient</h3>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            createPatient();
-                        }}
-                    >
-                        <input
-                            type="text"
-                            placeholder="Name (required)"
-                            value={newPatient.name}
-                            onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="email"
-                            placeholder="Email (required)"
-                            value={newPatient.email}
-                            onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Phone Number (optional)"
-                            value={newPatient.phone}
-                            onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="number"
-                            placeholder="Age (optional)"
-                            value={newPatient.age || ""}
-                            onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <button
-                            type="submit"
-                            className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                        >
-                            Create Patient
-                        </button>
-                    </form>
-                </div>
+            {!loading && !error && patients.length === 0 && (
+                <p className="text-gray-600">No patients found.</p>
             )}
 
-            {/* Update Patient Form */}
-            {selectedPatient && (
-                <div className="mt-6">
-                    <h3 className="text-lg">Update Patient: {selectedPatient.name}</h3>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            updatePatient();
-                        }}
-                    >
-                        <input
-                            type="text"
-                            placeholder="Name"
-                            value={updatePatientData.name}
-                            onChange={(e) => setUpdatePatientData({ ...updatePatientData, name: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="email"
-                            placeholder="Email"
-                            value={updatePatientData.email}
-                            onChange={(e) => setUpdatePatientData({ ...updatePatientData, email: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Phone Number"
-                            value={updatePatientData.phone}
-                            onChange={(e) => setUpdatePatientData({ ...updatePatientData, phone: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="number"
-                            placeholder="Age"
-                            value={updatePatientData.age || ""}
-                            onChange={(e) => setUpdatePatientData({ ...updatePatientData, age: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <button
-                            type="submit"
-                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                        >
-                            Update Patient
-                        </button>
-                    </form>
-                </div>
-            )}
+            {/* --- List of Patients --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {patients.map((patient) => (
+                    <div key={patient.id} className="border border-gray-300 rounded p-4 shadow-md">
+                        <h2 className="text-lg font-semibold mb-2">{patient.name}</h2>
+                        <p>Email: {patient.email}</p>
+                        <p>Age: {patient.age}</p>
+                        <p>Phone: {patient.phone_number}</p>
+
+                        <div className="mt-4 space-x-2">
+                            <button
+                                onClick={() => handleEditPatient(patient)}
+                                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                onClick={() => handleDeletePatient(patient.id)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
