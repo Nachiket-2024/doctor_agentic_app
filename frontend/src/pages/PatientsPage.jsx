@@ -66,6 +66,7 @@ export default function PatientsPage() {
             role: "patient",
             age: age.trim() === "" ? null : parseInt(age),
             phone_number: phoneNumber.trim() === "" ? null : phoneNumber,
+            // Omit available_days for patients, as they aren't relevant here
         };
 
         try {

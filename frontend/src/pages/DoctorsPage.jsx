@@ -1,440 +1,304 @@
-import { useState, useEffect } from "react";
-import axios from "axios";  // For making HTTP requests
-import { useNavigate } from "react-router-dom";  // For navigation
+import { useEffect, useState } from "react";  // Import hooks from React for managing state and lifecycle
+import { useNavigate } from "react-router-dom";  // Import navigate hook for routing
+import axios from "axios";  // Import axios for making API calls
 
 export default function DoctorsPage() {
-    const navigate = useNavigate();
-    const [doctors, setDoctors] = useState([]);   // To store doctor data
-    const [loading, setLoading] = useState(true);  // To track loading state
-    const [error, setError] = useState(null);      // To track any errors
-    const [successMessage, setSuccessMessage] = useState(null); // To track success message
-    const [newDoctor, setNewDoctor] = useState({
-        name: "",
-        specialization: "",
-        available_days: {}, // Available days with times for doctor
-        slot_duration: 30,   // Default slot duration of 30 minutes
-        email: "",
-        phone_number: "",
-    }); // State for creating a new doctor
+    // State variables to store doctor data, form inputs, success/error messages, etc.
+    const [doctors, setDoctors] = useState([]);  // State to store the list of doctors
+    const [loading, setLoading] = useState(true);  // State for loading status
+    const [error, setError] = useState(null);  // State to store any error messages
+    const [name, setName] = useState("");  // State for doctor's name
+    const [email, setEmail] = useState("");  // State for doctor's email
+    const [specialization, setSpecialization] = useState("");  // State for doctor's specialization
+    const [availableDays, setAvailableDays] = useState({
+        mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "",
+    });  // State for doctor's available days
+    const [slotDuration, setSlotDuration] = useState("");  // State for slot duration
+    const [editingDoctorId, setEditingDoctorId] = useState(null);  // State to track editing mode
+    const [successMessage, setSuccessMessage] = useState(null);  // State for success messages
+    const [errorMessage, setErrorMessage] = useState(null);  // State for error messages
+    const [isDoctorsVisible, setIsDoctorsVisible] = useState(false);  // State for toggling doctor list visibility
 
-    const [updateDoctorData, setUpdateDoctorData] = useState({
-        name: "",
-        specialization: "",
-        available_days: {}, // Available days with times for doctor
-        slot_duration: 30,   // Default slot duration of 30 minutes
-        email: "",
-        phone_number: "",
-    }); // State for updating an existing doctor
+    const navigate = useNavigate();  // Hook to navigate between pages
 
-    const [selectedDoctor, setSelectedDoctor] = useState(null); // Selected doctor for update
-    const [isDoctorsListVisible, setIsDoctorsListVisible] = useState(false);
-
-    // New state for availability
-    const [availableSlots, setAvailableSlots] = useState([]);
-    const [selectedDate, setSelectedDate] = useState("");  // To store selected date for availability query
-
-    // Loading states for each operation
-    const [createLoading, setCreateLoading] = useState(false);
-    const [updateLoading, setUpdateLoading] = useState(false);
-    const [deleteLoading, setDeleteLoading] = useState(false);
-    const [availabilityLoading, setAvailabilityLoading] = useState(false);
-
-    // Fetch all doctors on component mount
+    // Fetch doctors on component mount
     useEffect(() => {
-        axios.get("http://localhost:8000/doctors", { withCredentials: true })
-            .then((res) => {
-                setDoctors(res.data);
-                setLoading(false);
-            })
-            .catch((err) => {
-                setError("Error fetching doctors");
-                setLoading(false);
-            });
-    }, []);
+        const fetchDoctors = async () => {
+            const token = localStorage.getItem("access_token");  // Retrieve the token from localStorage
 
-    // Handle Create Doctor
-    const createDoctor = () => {
-        if (!newDoctor.name || !newDoctor.specialization || !newDoctor.email) {
-            setError("Name, specialization, and email are required.");
-            return;
-        }
-
-        setCreateLoading(true);
-        const formattedDays = Object.keys(newDoctor.available_days).reduce((acc, day) => {
-            const lowerCaseDay = day.toLowerCase();
-            acc[lowerCaseDay] = newDoctor.available_days[day];
-            return acc;
-        }, {});
-
-        const doctorData = { ...newDoctor, available_days: formattedDays };
-
-        axios.post("http://localhost:8000/doctors", doctorData, { withCredentials: true })
-            .then((res) => {
-                setDoctors((prevDoctors) => [...prevDoctors, res.data]);
-                setSuccessMessage("Doctor created successfully!");
-                setError(null);
-                setNewDoctor({
-                    name: "",
-                    specialization: "",
-                    available_days: {},
-                    slot_duration: 30,
-                    email: "",
-                    phone_number: "",
-                });
-                setCreateLoading(false);
-            })
-            .catch((err) => {
-                console.error("Error creating doctor:", err);
-                setSuccessMessage(null);
-                setError("Error creating doctor.");
-                setCreateLoading(false);
-            });
-    };
-
-    // Handle Update Doctor
-    const updateDoctor = () => {
-        if (!selectedDoctor) return;
-
-        const updatedData = { ...selectedDoctor };
-
-        if (updateDoctorData.name !== "") updatedData.name = updateDoctorData.name;
-        if (updateDoctorData.specialization !== "") updatedData.specialization = updateDoctorData.specialization;
-        if (updateDoctorData.email !== "") updatedData.email = updateDoctorData.email;
-        if (updateDoctorData.phone_number !== "") updatedData.phone_number = updateDoctorData.phone_number;
-
-        const formattedDays = Object.keys(updateDoctorData.available_days).reduce((acc, day) => {
-            const lowerCaseDay = day.toLowerCase();
-            if (updateDoctorData.available_days[day]) {
-                acc[lowerCaseDay] = updateDoctorData.available_days[day];
+            if (!token) {  // If no token, redirect to login page
+                navigate("/login");
+                return;
             }
-            return acc;
-        }, {});
 
-        if (Object.keys(formattedDays).length > 0) updatedData.available_days = formattedDays;
-
-        setUpdateLoading(true);
-        axios.put(`http://localhost:8000/doctors/${selectedDoctor.id}`, updatedData, { withCredentials: true })
-            .then((res) => {
-                setDoctors((prevDoctors) =>
-                    prevDoctors.map((doctor) => (doctor.id === selectedDoctor.id ? res.data : doctor))
-                );
-                setSelectedDoctor(null);
-                setUpdateDoctorData({
-                    name: "",
-                    specialization: "",
-                    available_days: {},
-                    slot_duration: 30,
-                    email: "",
-                    phone_number: "",
+            try {
+                // Fetch doctors data from backend API with the token in headers
+                const response = await axios.get("http://localhost:8000/doctor/", {
+                    headers: { Authorization: `Bearer ${token}` },
                 });
-                setSuccessMessage("Doctor updated successfully!");
-                setUpdateLoading(false);
-            })
-            .catch((err) => {
-                console.error("Error updating doctor:", err);
-                setSuccessMessage(null);
-                setError("Error updating doctor.");
-                setUpdateLoading(false);
-            });
+
+                // Clean and format data (e.g., ensure specialization, available_days, and slot_duration are not null)
+                const cleaned = response.data.map((d) => ({
+                    ...d,
+                    specialization: d.specialization ?? "N/A",
+                    available_days: d.available_days ?? {},
+                    slot_duration: d.slot_duration ?? "N/A",
+                }));
+
+                setDoctors(cleaned);  // Update state with fetched doctors data
+                setSuccessMessage("Doctors loaded successfully.");  // Set success message
+                setError(null);  // Clear any error message
+            } catch (err) {
+                console.error("Failed to fetch doctors:", err);
+                setErrorMessage("Could not load doctors.");  // Set error message on failure
+            } finally {
+                setLoading(false);  // Set loading to false once the request is done
+            }
+        };
+
+        fetchDoctors();  // Call the fetchDoctors function
+    }, [navigate]);  // Re-run useEffect only if `navigate` changes
+
+    // Handle form submit for both creating and updating doctors
+    const handleSubmit = async (e) => {
+        e.preventDefault();  // Prevent default form submission behavior
+
+        const token = localStorage.getItem("access_token");  // Retrieve token from localStorage
+
+        // Format the availableDays object properly before sending it to the backend
+        const formattedAvailableDays = {};
+        Object.keys(availableDays).forEach((day) => {
+            formattedAvailableDays[day] = availableDays[day]
+                .split(",")  // Split time slots by commas
+                .map((slot) => slot.trim())  // Trim whitespace around slots
+                .filter((slot) => slot);  // Remove empty time slots
+        });
+
+        // Prepare payload for the API request
+        const payload = {
+            name,
+            email,
+            role: "doctor",  // Role is always "doctor" for this page
+            specialization: specialization.trim() || null,  // If specialization is empty, set it as null
+            available_days: formattedAvailableDays,  // Set formatted available days
+            slot_duration: slotDuration.trim() || null,  // If slot duration is empty, set it as null
+        };
+
+        try {
+            if (editingDoctorId) {
+                // If editing an existing doctor, send a PUT request to update
+                await axios.put(`http://localhost:8000/doctor/${editingDoctorId}`, payload, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                setDoctors((prev) =>
+                    prev.map((d) => (d.id === editingDoctorId ? { ...d, ...payload } : d))  // Update the doctor in the state
+                );
+                setSuccessMessage("Doctor updated successfully.");  // Set success message for update
+            } else {
+                // If creating a new doctor, send a POST request to create
+                const response = await axios.post("http://localhost:8000/doctor/", payload, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                // Clean the response data and format before adding to state
+                const doctor = {
+                    ...response.data,
+                    specialization: response.data.specialization ?? "N/A",
+                    available_days: response.data.available_days ?? {},
+                    slot_duration: response.data.slot_duration ?? "N/A",
+                };
+
+                setDoctors((prev) => [...prev, doctor]);  // Add the new doctor to the state
+                setSuccessMessage("Doctor created successfully.");  // Set success message for creation
+            }
+            resetForm();  // Reset the form after submission
+        } catch (err) {
+            console.error("Save failed:", err);
+            setErrorMessage("Failed to save doctor.");  // Set error message if the request fails
+        }
     };
 
-    // Handle Delete Doctor
-    const deleteDoctor = (doctorId) => {
-        setDeleteLoading(true);
-        axios.delete(`http://localhost:8000/doctors/${doctorId}`, { withCredentials: true })
-            .then(() => {
-                setDoctors((prevDoctors) => prevDoctors.filter((doctor) => doctor.id !== doctorId));
-                setSelectedDoctor(null);  // Reset selected doctor
-                setDeleteLoading(false);
-            })
-            .catch((err) => {
-                console.error("Error deleting doctor:", err);
-                setDeleteLoading(false);
-            });
+    // Handle editing an existing doctor (populate form with doctor's existing data)
+    const handleEditDoctor = (doctor) => {
+        setEditingDoctorId(doctor.id);  // Set the doctor ID to indicate we're editing this doctor
+        setName(doctor.name || "");  // Populate the name input
+        setEmail(doctor.email || "");  // Populate the email input
+        setSpecialization(doctor.specialization !== "N/A" ? doctor.specialization : "");  // Populate the specialization input
+        setAvailableDays(doctor.available_days || {  // Populate the available days input
+            mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "",
+        });
+        setSlotDuration(doctor.slot_duration !== "N/A" ? doctor.slot_duration : "");  // Populate the slot duration input
     };
 
-    // Fetch available slots based on selected date
-    const fetchAvailableSlots = () => {
-        if (!selectedDoctor || !selectedDate) return;
-
-        setAvailabilityLoading(true);
-        axios
-            .get(`http://localhost:8000/doctors/${selectedDoctor.id}/availability?date=${selectedDate}`, { withCredentials: true })
-            .then((response) => {
-                setAvailableSlots(response.data.available_slots);
-                setAvailabilityLoading(false);
-            })
-            .catch((err) => {
-                console.error("Error fetching available slots:", err);
-                setError("Error fetching available slots.");
-                setAvailabilityLoading(false);
+    // Handle deleting a doctor
+    const handleDeleteDoctor = async (doctorId) => {
+        if (!window.confirm("Are you sure you want to delete this doctor?")) return;  // Ask for confirmation before deletion
+        try {
+            const token = localStorage.getItem("access_token");  // Retrieve the token
+            await axios.delete(`http://localhost:8000/doctor/${doctorId}`, {
+                headers: { Authorization: `Bearer ${token}` },  // Pass the token in the request headers
             });
+            setDoctors((prev) => prev.filter((d) => d.id !== doctorId));  // Remove the deleted doctor from the state
+            setSuccessMessage("Doctor deleted successfully.");  // Set success message for deletion
+        } catch (err) {
+            console.error("Delete failed:", err);
+            setErrorMessage("Failed to delete doctor.");  // Set error message if deletion fails
+        }
     };
 
-    // Show loading or error state
-    if (loading) return <p>Loading doctors...</p>;
-    if (error) return <p>{error}</p>;
+    // Handle changes in available days input fields
+    const handleDayChange = (day) => (e) => {
+        const newTimeSlot = e.target.value;  // Get the new time slot for the day
+        setAvailableDays((prevDays) => {
+            const updatedDays = { ...prevDays };
+            updatedDays[day] = newTimeSlot;  // Update the available days state for the selected day
+            return updatedDays;
+        });
+    };
+
+    // Reset the form fields and state after creating or editing a doctor
+    const resetForm = () => {
+        setName("");
+        setEmail("");
+        setSpecialization("");
+        setAvailableDays({
+            mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "",
+        });
+        setSlotDuration("");
+        setEditingDoctorId(null);  // Reset the editing ID to indicate no doctor is being edited
+    };
+
+    // Toggle the visibility of the doctors list
+    const toggleDoctorListVisibility = () => {
+        setIsDoctorsVisible(!isDoctorsVisible);  // Toggle the state between true/false
+    };
+
+    // Navigate to the dashboard page
+    const handleGoToDashboard = () => {
+        navigate("/dashboard");  // Use the navigate hook to go to the dashboard
+    };
 
     return (
-        <div className="p-4">
-            <h1 className="text-2xl font-bold mb-2">Manage Doctors</h1>
+        <div className="p-6">
+            <h1 className="text-2xl font-bold mb-4">Doctors</h1>
 
-            {/* Toggle button for doctor list visibility */}
-            <button
-                onClick={() => setIsDoctorsListVisible(!isDoctorsListVisible)}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-                {isDoctorsListVisible ? "Hide Doctors List" : "Show Doctors List"}
-            </button>
+            {successMessage && <p className="text-green-500 mb-4">{successMessage}</p>}  {/* Show success message */}
+            {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}  {/* Show error message */}
 
-            {/* List of doctors (conditionally rendered based on visibility state) */}
-            {isDoctorsListVisible && (
-                <div>
-                    <h2 className="text-xl font-semibold mt-4">Doctors List</h2>
-                    <ul>
-                        {doctors.map((doctor) => (
-                            <li key={doctor.id} className="mb-2">
-                                <p><strong>{doctor.name}</strong></p>
-                                <p>{doctor.specialization}</p>
+            {/* --- Create/Edit Form --- */}
+            <form onSubmit={handleSubmit} className="mb-6 space-y-4 max-w-md">
+                <h2 className="text-lg font-semibold">{editingDoctorId ? "Update Doctor" : "Create New Doctor"}</h2>
+                <input
+                    type="text"
+                    placeholder="Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className="w-full border border-gray-300 px-3 py-2 rounded"
+                />
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-full border border-gray-300 px-3 py-2 rounded"
+                />
+                <input
+                    type="text"
+                    placeholder="Specialization"
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    className="w-full border border-gray-300 px-3 py-2 rounded"
+                />
 
-                                {/* Edit button */}
-                                <button
-                                    onClick={() => setSelectedDoctor(doctor)}
-                                    className="mt-1 text-blue-500"
-                                >
-                                    Edit
-                                </button>
-
-                                {/* Delete button */}
-                                <button
-                                    onClick={() => deleteDoctor(doctor.id)}
-                                    className="mt-1 ml-4 text-red-500"
-                                    disabled={deleteLoading}
-                                >
-                                    {deleteLoading ? "Deleting..." : "Delete"}
-                                </button>
-
-                                {/* Check Availability button */}
-                                <button
-                                    onClick={() => setSelectedDoctor(doctor)}
-                                    className="mt-1 ml-4 text-yellow-500"
-                                >
-                                    Check Availability
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-
-            {/* Success or Error message */}
-            {successMessage && <p className="text-green-500">{successMessage}</p>}
-            {error && <p className="text-red-500">{error}</p>}
-
-            {/* Create New Doctor Form */}
-            {!selectedDoctor && (
-                <div className="mt-6">
-                    <h3 className="text-lg">Create New Doctor</h3>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            createDoctor();
-                        }}
-                    >
-                        <input
-                            type="text"
-                            placeholder="Doctor Name (required)"
-                            value={newDoctor.name}
-                            onChange={(e) => setNewDoctor({ ...newDoctor, name: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Specialization (required)"
-                            value={newDoctor.specialization}
-                            onChange={(e) => setNewDoctor({ ...newDoctor, specialization: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="email"
-                            placeholder="Email (required)"
-                            value={newDoctor.email}
-                            onChange={(e) => setNewDoctor({ ...newDoctor, email: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Phone Number (optional)"
-                            value={newDoctor.phone_number}
-                            onChange={(e) => setNewDoctor({ ...newDoctor, phone_number: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-
-                        {/* Doctor Availability */}
-                        <h4 className="mt-4">Doctor Availability</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => (
-                                <div key={day} className="mb-2">
-                                    <input
-                                        type="text"
-                                        placeholder={`${day} (e.g., 10:00, 14:00)`}
-                                        value={newDoctor.available_days[day]?.join(", ") || ""}
-                                        onChange={(e) =>
-                                            setNewDoctor({
-                                                ...newDoctor,
-                                                available_days: {
-                                                    ...newDoctor.available_days,
-                                                    [day]: e.target.value.split(",").map((time) => time.trim()),
-                                                },
-                                            })
-                                        }
-                                        className="p-2 border mb-2 w-full"
-                                    />
-                                </div>
-                            ))}
-
-                            {/* Slot Duration */}
-                            <div className="mb-2">
-                                <label htmlFor="slot_duration" className="block">Slot Duration (in minutes)</label>
-                                <input
-                                    type="number"
-                                    id="slot_duration"
-                                    value={newDoctor.slot_duration}
-                                    onChange={(e) => setNewDoctor({ ...newDoctor, slot_duration: e.target.value })}
-                                    className="p-2 border w-full"
-                                />
-                            </div>
+                {/* Available days input fields */}
+                <div className="space-y-4">
+                    {["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => (
+                        <div key={day}>
+                            <label className="block font-semibold">{day.toUpperCase()}:</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. (10:00-14:00, 15:00-18:00)"
+                                value={availableDays[day]}
+                                onChange={handleDayChange(day)}
+                                className="w-full border border-gray-300 px-3 py-2 rounded"
+                            />
                         </div>
-
-                        <button
-                            type="submit"
-                            className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                            disabled={createLoading}
-                        >
-                            {createLoading ? "Creating..." : "Create Doctor"}
-                        </button>
-                    </form>
+                    ))}
                 </div>
-            )}
 
-            {/* Update Doctor Form */}
-            {selectedDoctor && (
-                <div className="mt-6">
-                    <h3 className="text-lg">Update Doctor: {selectedDoctor.name}</h3>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            updateDoctor();
-                        }}
-                    >
-                        <input
-                            type="text"
-                            placeholder="Doctor Name"
-                            value={updateDoctorData.name}
-                            onChange={(e) => setUpdateDoctorData({ ...updateDoctorData, name: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Specialization"
-                            value={updateDoctorData.specialization}
-                            onChange={(e) => setUpdateDoctorData({ ...updateDoctorData, specialization: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="email"
-                            placeholder="Email"
-                            value={updateDoctorData.email}
-                            onChange={(e) => setUpdateDoctorData({ ...updateDoctorData, email: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Phone Number"
-                            value={updateDoctorData.phone_number}
-                            onChange={(e) => setUpdateDoctorData({ ...updateDoctorData, phone_number: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-
-                        {/* Doctor Availability */}
-                        <h4 className="mt-4">Doctor Availability</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => (
-                                <div key={day} className="mb-2">
-                                    <input
-                                        type="text"
-                                        placeholder={`${day} (e.g., 10:00, 14:00)`}
-                                        value={updateDoctorData.available_days[day]?.join(", ") || ""}
-                                        onChange={(e) =>
-                                            setUpdateDoctorData({
-                                                ...updateDoctorData,
-                                                available_days: {
-                                                    ...updateDoctorData.available_days,
-                                                    [day]: e.target.value.split(",").map((time) => time.trim()),
-                                                },
-                                            })
-                                        }
-                                        className="p-2 border mb-2 w-full"
-                                    />
-                                </div>
-                            ))}
-
-                            {/* Slot Duration */}
-                            <div className="mb-2">
-                                <label htmlFor="slot_duration" className="block">Slot Duration (in minutes)</label>
-                                <input
-                                    type="number"
-                                    id="slot_duration"
-                                    value={updateDoctorData.slot_duration}
-                                    onChange={(e) => setUpdateDoctorData({ ...updateDoctorData, slot_duration: e.target.value })}
-                                    className="p-2 border w-full"
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            disabled={updateLoading}
-                        >
-                            {updateLoading ? "Updating..." : "Update Doctor"}
-                        </button>
-                    </form>
-                </div>
-            )}
-
-            {/* Availability Check Form */}
-            {selectedDoctor && (
-                <div className="mt-6">
-                    <h3 className="text-lg">Check Availability for {selectedDoctor.name}</h3>
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="p-2 border mb-2 w-full"
-                    />
+                {/* Slot duration input */}
+                <input
+                    type="text"
+                    placeholder="Slot Duration (in minutes)"
+                    value={slotDuration}
+                    onChange={(e) => setSlotDuration(e.target.value)}
+                    className="w-full border border-gray-300 px-3 py-2 rounded"
+                />
+                <div className="space-x-2">
                     <button
-                        onClick={fetchAvailableSlots}
-                        className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-                        disabled={availabilityLoading}
+                        type="submit"
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                     >
-                        {availabilityLoading ? "Checking..." : "Check Availability"}
+                        {editingDoctorId ? "Update" : "Create"}
                     </button>
-
-                    {/* Show available slots */}
-                    {availableSlots.length > 0 && (
-                        <div className="mt-4">
-                            <h4 className="text-lg">Available Slots</h4>
-                            <ul>
-                                {availableSlots.map((slot, index) => (
-                                    <li key={index}>{slot}</li>
-                                ))}
-                            </ul>
-                        </div>
+                    {editingDoctorId && (
+                        <button
+                            type="button"
+                            onClick={resetForm}
+                            className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded"
+                        >
+                            Cancel
+                        </button>
                     )}
+                </div>
+            </form>
+
+            {/* Navigation and toggle visibility buttons */}
+            <div className="mb-4">
+                <button
+                    onClick={handleGoToDashboard}
+                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded mr-4"
+                >
+                    Go to Dashboard
+                </button>
+                <button
+                    onClick={toggleDoctorListVisibility}
+                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+                >
+                    {isDoctorsVisible ? "Hide" : "Show"} Doctors List
+                </button>
+            </div>
+
+            {/* --- Doctors List --- */}
+            {isDoctorsVisible && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {doctors.map((doctor) => (
+                        <div key={doctor.id} className="border border-gray-300 rounded p-4 shadow-md">
+                            <h2 className="text-lg font-semibold mb-2">{doctor.name}</h2>
+                            <p>Email: {doctor.email}</p>
+                            <p>Specialization: {doctor.specialization}</p>
+                            <p>Available Days: {JSON.stringify(doctor.available_days)}</p>
+                            <p>Slot Duration: {doctor.slot_duration}</p>
+
+                            <div className="mt-4 space-x-2">
+                                <button
+                                    onClick={() => handleEditDoctor(doctor)}
+                                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
+                                >
+                                    Update Doctor
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteDoctor(doctor.id)}
+                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

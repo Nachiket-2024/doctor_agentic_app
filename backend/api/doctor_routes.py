@@ -24,7 +24,7 @@ router = APIRouter(
 async def get_doctor(doctor_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
     Get doctor details by doctor_id.
-    Accessible by all authenticated users.
+    Accessible by all authenticated users (admin, patient, doctor).
     """
     try:
         # Verify JWT token
@@ -137,6 +137,49 @@ async def delete_doctor(
         db.commit()
 
         return {"message": "Doctor deleted successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------- Route: Get All Doctors ----------------------------
+@router.get("/", response_model=list[UserResponse])  # Set response model to a list of doctors
+async def get_all_doctors(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """
+    Get all doctors.
+    - Admins can see all doctors.
+    - Doctors can see their own information.
+    - Patients can see all doctors.
+    """
+    try:
+        # Verify JWT token to get user data (email and role)
+        payload = verify_jwt_token(token)
+        user_email = payload.get("sub")  # 'sub' is usually the email or unique ID
+        role = payload.get("role")       # Get user's role from the token
+
+        # ---------- Case: Admin ---------- 
+        if role == "admin":
+            # Admin sees all doctors
+            doctors = db.query(User).filter(User.role == "doctor").all()
+            return doctors
+
+        # ---------- Case: Patient ---------- 
+        elif role == "patient":
+            # Patients can see all doctors
+            doctors = db.query(User).filter(User.role == "doctor").all()
+            return doctors
+
+        # ---------- Case: Doctor ---------- 
+        elif role == "doctor":
+            # A doctor can only see their own information
+            doctor = db.query(User).filter(User.email == user_email, User.role == "doctor").first()
+            if not doctor:
+                raise HTTPException(status_code=404, detail="Doctor record not found")
+            return [doctor]  # Return a list of one doctor (since only the current doctor can see their info)
+
+        # ---------- Invalid Role ---------- 
+        else:
+            raise HTTPException(status_code=403, detail="Unauthorized role")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

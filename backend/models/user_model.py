@@ -1,5 +1,5 @@
 # Importing necessary SQLAlchemy classes
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, JSON
 from sqlalchemy.orm import relationship
 
 # Importing Base class from the db.base module
@@ -25,6 +25,6 @@ class User(Base):
     phone_number = Column(String, nullable=True)  # Optional phone number
     google_id = Column(String, nullable=True)  # Optional Google ID
     specialization = Column(String, nullable=True)  # Optional, specific to doctors
-    available_days = Column(String, nullable=True)  # Optional, time slots for doctors
+    available_days = Column(JSON, nullable=True)  # Optional, time slots for doctors
     slot_duration = Column(Integer, nullable=True)  # Optional, slot duration for doctors
     age = Column(Integer, nullable=True)  # Optional, age for patients

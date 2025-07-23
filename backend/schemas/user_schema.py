@@ -11,7 +11,7 @@ class UserBase(BaseModel):
     phone_number: str | None = None  # Optional phone number
     google_id: str | None = None  # Optional Google ID
     specialization: str | None = None  # Optional specialization (for doctors)
-    available_days: str | None = None  # Optional availability (for doctors)
+    available_days: dict | None = None  # Optional availability (for doctors)
     slot_duration: int | None = None  # Optional slot duration (for doctors)
     age: int | None = None  # Optional age (for patients)
 
