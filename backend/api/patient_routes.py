@@ -169,31 +169,40 @@ async def get_all_patients(token: str = Depends(oauth2_scheme), db: Session = De
     - Patient: sees only self
     """
     try:
-        # Decode token
+        # Decode JWT token to get payload data like email and role
         payload = verify_jwt_token(token)
-        user_email = payload.get("sub")
-        role = payload.get("role")
+        user_email = payload.get("sub")  # 'sub' is usually the email or unique ID
+        role = payload.get("role")       # Get user's role from the token
 
+        # ---------- Case: Admin ----------
         if role == "admin":
-            # Return all patients
+            admin_only(token, db)  # Will raise 403 if not a valid admin
+
+            # Query all patients from User table
             patients = db.query(User).filter(User.role == "patient").all()
             return patients
 
+        # ---------- Case: Patient ----------
         elif role == "patient":
-            # Return only the logged-in patient
+            # Return only the patient record of the logged-in user
             patient = db.query(User).filter(User.email == user_email, User.role == "patient").first()
             if not patient:
                 raise HTTPException(status_code=404, detail="Patient record not found")
-            return [patient]
+            return [patient]  # Must return a list to match response_model
 
+        # ---------- Case: Doctor ----------
         elif role == "doctor":
-            # Doctor logic (placeholder until relationship is built)
+            # Doctor logic to be implemented later (placeholder for now)
             doctor = db.query(User).filter(User.email == user_email, User.role == "doctor").first()
             if not doctor:
                 raise HTTPException(status_code=403, detail="Doctor not found")
             raise HTTPException(status_code=501, detail="Doctor-patient filtering not yet implemented")
 
+        # ---------- Invalid Role ----------
         else:
             raise HTTPException(status_code=403, detail="Unauthorized role")
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()  # Print full traceback for debugging
+        raise HTTPException(status_code=500, detail="Internal Server Error")

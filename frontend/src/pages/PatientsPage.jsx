@@ -1,28 +1,26 @@
-// --- React and hooks for state, effect, and navigation ---
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
-// --- Axios for making API requests ---
 import axios from "axios";
 
-// --- Main PatientsPage component ---
 export default function PatientsPage() {
-    const [patients, setPatients] = useState([]);              // Stores list of patients
-    const [loading, setLoading] = useState(true);              // Loading indicator for fetch
-    const [error, setError] = useState(null);                  // Error state
-    const [name, setName] = useState("");                      // Form field: patient name
-    const [email, setEmail] = useState("");                    // Form field: patient email
-    const [age, setAge] = useState("");                        // Form field: patient age
-    const [phoneNumber, setPhoneNumber] = useState("");        // Form field: patient phone number
-    const [editingPatientId, setEditingPatientId] = useState(null); // Tracks patient being edited
+    const [patients, setPatients] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [age, setAge] = useState("");
+    const [phoneNumber, setPhoneNumber] = useState("");
+    const [editingPatientId, setEditingPatientId] = useState(null);
+    const [successMessage, setSuccessMessage] = useState(null); // Success message state
+    const [errorMessage, setErrorMessage] = useState(null); // Error message state
+    const [isPatientsVisible, setIsPatientsVisible] = useState(false); // Toggle for patient list visibility
 
     const navigate = useNavigate();
     const location = useLocation();
 
-    // --- Fetch patients from API when component mounts ---
     useEffect(() => {
         const fetchPatients = async () => {
-            const token = localStorage.getItem("access_token");    // Use correct token key
+            const token = localStorage.getItem("access_token");
 
             if (!token) {
                 navigate("/login");
@@ -34,7 +32,6 @@ export default function PatientsPage() {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
-                // Normalize null fields for display
                 const cleaned = response.data.map((p) => ({
                     ...p,
                     age: p.age ?? "N/A",
@@ -47,9 +44,10 @@ export default function PatientsPage() {
 
                 setPatients(cleaned);
                 setError(null);
+                setSuccessMessage("Patients loaded successfully."); // Success message for fetch
             } catch (err) {
                 console.error("Failed to fetch patients:", err);
-                setError("Could not load patients.");
+                setErrorMessage("Could not load patients.");
             } finally {
                 setLoading(false);
             }
@@ -58,10 +56,9 @@ export default function PatientsPage() {
         fetchPatients();
     }, [navigate]);
 
-    // --- Create or update patient based on editing state ---
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const token = localStorage.getItem("access_token");      // Use correct token key
+        const token = localStorage.getItem("access_token");
 
         const payload = {
             name,
@@ -80,6 +77,7 @@ export default function PatientsPage() {
                 setPatients((prev) =>
                     prev.map((p) => (p.id === editingPatientId ? { ...p, ...payload } : p))
                 );
+                setSuccessMessage("Patient updated successfully."); // Success message for update
             } else {
                 const response = await axios.post("http://localhost:8000/patient/", payload, {
                     headers: { Authorization: `Bearer ${token}` },
@@ -96,15 +94,15 @@ export default function PatientsPage() {
                 };
 
                 setPatients((prev) => [...prev, patient]);
+                setSuccessMessage("Patient created successfully."); // Success message for create
             }
             resetForm();
         } catch (err) {
             console.error("Save failed:", err);
-            alert("Failed to save patient.");
+            setErrorMessage("Failed to save patient.");
         }
     };
 
-    // --- Populate form fields for editing ---
     const handleEditPatient = (patient) => {
         setEditingPatientId(patient.id);
         setName(patient.name || "");
@@ -113,22 +111,21 @@ export default function PatientsPage() {
         setPhoneNumber(patient.phone_number !== "N/A" ? patient.phone_number : "");
     };
 
-    // --- Delete a patient ---
     const handleDeletePatient = async (patientId) => {
         if (!window.confirm("Are you sure you want to delete this patient?")) return;
         try {
-            const token = localStorage.getItem("access_token");    // Use correct token key
+            const token = localStorage.getItem("access_token");
             await axios.delete(`http://localhost:8000/patient/${patientId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setPatients((prev) => prev.filter((p) => p.id !== patientId));
+            setSuccessMessage("Patient deleted successfully."); // Success message for delete
         } catch (err) {
             console.error("Delete failed:", err);
-            alert("Failed to delete patient.");
+            setErrorMessage("Failed to delete patient.");
         }
     };
 
-    // --- Reset form fields ---
     const resetForm = () => {
         setName("");
         setEmail("");
@@ -137,10 +134,27 @@ export default function PatientsPage() {
         setEditingPatientId(null);
     };
 
-    // --- Render component ---
+    // Function to toggle patient list visibility
+    const togglePatientListVisibility = () => {
+        setIsPatientsVisible(!isPatientsVisible);
+    };
+
+    // Navigate to Dashboard
+    const handleGoToDashboard = () => {
+        navigate("/dashboard");
+    };
+
     return (
         <div className="p-6">
             <h1 className="text-2xl font-bold mb-4">Patients</h1>
+
+            {/* Success and Error Messages */}
+            {successMessage && (
+                <p className="text-green-500 mb-4">{successMessage}</p>
+            )}
+            {errorMessage && (
+                <p className="text-red-500 mb-4">{errorMessage}</p>
+            )}
 
             {/* --- Create/Edit Form --- */}
             <form onSubmit={handleSubmit} className="mb-6 space-y-4 max-w-md">
@@ -196,6 +210,22 @@ export default function PatientsPage() {
                 </div>
             </form>
 
+            {/* --- Buttons for Navigation and Visibility Toggle --- */}
+            <div className="mb-4">
+                <button
+                    onClick={handleGoToDashboard}
+                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded mr-4"
+                >
+                    Go to Dashboard
+                </button>
+                <button
+                    onClick={togglePatientListVisibility}
+                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+                >
+                    {isPatientsVisible ? "Hide" : "Show"} Patients List
+                </button>
+            </div>
+
             {/* --- Conditional UI --- */}
             {loading && <p>Loading patients...</p>}
             {error && <p className="text-red-500">{error}</p>}
@@ -203,32 +233,34 @@ export default function PatientsPage() {
                 <p className="text-gray-600">No patients found.</p>
             )}
 
-            {/* --- List of Patients --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {patients.map((patient) => (
-                    <div key={patient.id} className="border border-gray-300 rounded p-4 shadow-md">
-                        <h2 className="text-lg font-semibold mb-2">{patient.name}</h2>
-                        <p>Email: {patient.email}</p>
-                        <p>Age: {patient.age}</p>
-                        <p>Phone: {patient.phone_number}</p>
+            {/* --- List of Patients (Visible/Hidden based on state) --- */}
+            {isPatientsVisible && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {patients.map((patient) => (
+                        <div key={patient.id} className="border border-gray-300 rounded p-4 shadow-md">
+                            <h2 className="text-lg font-semibold mb-2">{patient.name}</h2>
+                            <p>Email: {patient.email}</p>
+                            <p>Age: {patient.age}</p>
+                            <p>Phone: {patient.phone_number}</p>
 
-                        <div className="mt-4 space-x-2">
-                            <button
-                                onClick={() => handleEditPatient(patient)}
-                                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
-                            >
-                                Edit
-                            </button>
-                            <button
-                                onClick={() => handleDeletePatient(patient.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-                            >
-                                Delete
-                            </button>
+                            <div className="mt-4 space-x-2">
+                                <button
+                                    onClick={() => handleEditPatient(patient)}
+                                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={() => handleDeletePatient(patient.id)}
+                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
