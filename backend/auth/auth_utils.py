@@ -1,43 +1,58 @@
-# ------------------------------------- Imports -------------------------------------
+# ---------------------------- External Imports ----------------------------
 
-# Standard library imports
+# For loading environment variables from a .env file
 import os
+
+# For working with timestamps and timezones
 from datetime import datetime, timedelta, timezone
 
-# JWT handling
+# For encoding and decoding JWTs and handling JWT-related exceptions
 from jose import JWTError, jwt
 
-# Load environment variables from .env file
+# For loading environment variables at runtime
 from dotenv import load_dotenv
 
-# ORM handling
+# For database session handling using SQLAlchemy ORM
 from sqlalchemy.orm import Session
 
-# To make HTTP requests to Google OAuth endpoints
+# For making HTTP requests (used for communicating with Google OAuth2 endpoints)
 import requests
 
-# Import user and admin models
+
+# ---------------------------- Internal Imports ----------------------------
+
+# Importing the User model for DB operations related to non-admin users
 from ..models.user_model import User
+
+# Importing the Admin model for DB operations related to admin users
 from ..models.admin_model import Admin
 
 
 # ---------------------------- Load Environment Variables ----------------------------
 
-# Load the .env file
+# Load the .env file into environment variables
 load_dotenv()
 
-# Required OAuth and JWT configuration from environment
-JWT_SECRET = os.getenv("JWT_SECRET")  # Secret key used to encode/decode JWT
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")  # Algorithm for encoding JWT (e.g., HS256)
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")  # Client ID from Google Console
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")  # Secret from Google Console
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")  # Redirect URI registered in Google Console
+# Fetch JWT secret used for signing tokens
+JWT_SECRET = os.getenv("JWT_SECRET")
 
-# Check that all required environment variables are present
+# Fetch the algorithm used to sign JWTs (e.g., HS256)
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+
+# Fetch the Google OAuth2 client ID
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+# Fetch the Google OAuth2 client secret
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+
+# Fetch the redirect URI registered with Google
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+# Raise error if any required environment variable is missing
 if not JWT_SECRET or not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET or not GOOGLE_REDIRECT_URI:
     raise ValueError("Missing required environment variables")
 
-# Set JWT expiration (defaults to 60 minutes if not set)
+# Fetch token expiration time in minutes (defaults to 60 minutes)
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
 
@@ -47,17 +62,17 @@ def create_jwt_token(user_info):
     """
     Create JWT token for the authenticated user.
     """
-    # Set token expiration time
+    # Set token expiration time from now
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    # Payload to be encoded into JWT
+    # Define payload with subject (email), role, and expiry
     to_encode = {
-        "sub": user_info["email"],  # Subject: user's email
-        "role": user_info["role"],  # Custom claim: user role
-        "exp": expire               # Expiration time
+        "sub": user_info["email"],
+        "role": user_info["role"],
+        "exp": expire
     }
 
-    # Encode and return the JWT token
+    # Encode payload using secret and algorithm
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
@@ -69,11 +84,11 @@ def verify_jwt_token(token: str):
     Verify and decode the JWT token.
     """
     try:
-        # Decode JWT using secret and algorithm
+        # Decode the token using the secret and algorithm
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload  # Returns the decoded token content
+        return payload
     except JWTError:
-        # Raise error if decoding fails
+        # If decoding fails, raise exception
         raise Exception("Could not validate credentials")
 
 
@@ -82,13 +97,14 @@ def verify_jwt_token(token: str):
 def authenticate_with_google(code: str, db: Session):
     """
     Authenticate the user using Google OAuth2.
-    - Exchanges code for access + refresh token
-    - Fetches user info from Google
-    - Creates user in DB if not found
-    - Returns user info with role + refresh_token
+    Steps:
+    - Exchange auth code for access + refresh token
+    - Fetch user info from Google
+    - Register or find user in DB
+    - Return enriched user info with role and refresh_token
     """
     try:
-        # -------- Step 1: Exchange authorization code for access + refresh token --------
+        # -------- Step 1: Exchange code for tokens --------
         token_data = {
             "code": code,
             "client_id": GOOGLE_CLIENT_ID,
@@ -97,19 +113,20 @@ def authenticate_with_google(code: str, db: Session):
             "grant_type": "authorization_code",
         }
 
-        # Request token from Google
+        # Send POST request to Google's token endpoint
         response = requests.post("https://oauth2.googleapis.com/token", data=token_data)
         response.raise_for_status()
         token_info = response.json()
 
-        # Ensure required fields are present
+        # Validate required fields in token response
         if not all(k in token_info for k in ["access_token", "refresh_token", "token_type", "expires_in"]):
             raise Exception("Incomplete token response from Google")
 
+        # Extract tokens from the response
         access_token = token_info["access_token"]
         refresh_token = token_info["refresh_token"]
 
-        # -------- Step 2: Use access token to get user info --------
+        # -------- Step 2: Use token to get user info --------
         user_info_response = requests.get(
             "https://www.googleapis.com/oauth2/v3/userinfo",
             headers={"Authorization": f"Bearer {access_token}"}
@@ -117,11 +134,12 @@ def authenticate_with_google(code: str, db: Session):
         user_info_response.raise_for_status()
         user_info = user_info_response.json()
 
+        # Extract relevant fields from user info
         user_name = user_info.get("name", "")
         user_email = user_info.get("email", "")
-        role = "patient"
+        role = "patient"  # Default role
 
-        # -------- Step 3: DB Role/Account Check --------
+        # -------- Step 3: Check user/admin in DB --------
         admin = db.query(Admin).filter(Admin.email == user_email).first()
         if admin:
             role = "admin"
@@ -135,12 +153,12 @@ def authenticate_with_google(code: str, db: Session):
             else:
                 role = user.role
 
-        # -------- Step 4: Return enriched user info --------
+        # -------- Step 4: Return user info --------
         return {
             "email": user_email,
             "name": user_name,
             "role": role,
-            "refresh_token": refresh_token  # Include refresh token if needed later
+            "refresh_token": refresh_token
         }
 
     except Exception as e:

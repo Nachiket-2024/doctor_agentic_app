@@ -1,34 +1,84 @@
-from pydantic import BaseModel, field_validator, ConfigDict
+# ------------------------------------- External Imports -------------------------------------
+
+# Import BaseModel and ConfigDict for Pydantic schema creation and configuration  
+from pydantic import BaseModel, ConfigDict
+
+# Import datetime module to handle date and time fields  
 import datetime
+
+# Import Annotated type hinting utility for optional fields  
 from typing import Annotated
 
-# Base model for Appointment
+# ------------------------------------- Base Schema for Appointment -------------------------------------
+
+# Define shared schema fields for appointment creation and reading  
 class AppointmentBase(BaseModel):
-    doctor_id: int  # ID of the doctor for the appointment
-    patient_id: int  # ID of the patient
-    date: datetime.date  # Date of the appointment
-    start_time: datetime.time  # Start time of the appointment
-    end_time: Annotated[datetime.time | None, None] = None  # Optional end time; auto-filled if not provided
-    status: str = 'scheduled'  # Appointment status (default is 'scheduled')
-    reason: Annotated[str | None, None] = None  # Optional reason or notes
+    # ID of the doctor assigned to the appointment (required)  
+    doctor_id: int
 
-# Schema for creating appointments
+    # ID of the patient for the appointment (required)  
+    patient_id: int
+
+    # Date of the appointment (required)  
+    date: datetime.date
+
+    # Start time of the appointment (required)  
+    start_time: datetime.time
+
+    # Optional end time of appointment  
+    end_time: Annotated[datetime.time | None, None] = None
+
+    # Status of the appointment (default: 'scheduled')  
+    status: str = 'scheduled'
+
+    # Optional reason or notes for the appointment  
+    reason: Annotated[str | None, None] = None
+
+    # Optional Google Calendar event ID for calendar syncing  
+    event_id: Annotated[str | None, None] = None
+
+# ------------------------------------- Schema for Creating Appointments -------------------------------------
+
+# Schema used when creating a new appointment  
 class AppointmentCreate(AppointmentBase):
-    pass  # Inherits the same structure as AppointmentBase for creating appointments
+    # Inherits all fields from AppointmentBase  
+    pass
 
-# Schema for updating existing appointments
+# ------------------------------------- Schema for Updating Appointments -------------------------------------
+
+# Schema used for updating existing appointments (all fields optional)  
 class AppointmentUpdate(BaseModel):
-    doctor_id: Annotated[int | None, None] = None  # Optional update to doctor_id
-    patient_id: Annotated[int | None, None] = None  # Optional update to patient_id
-    date: Annotated[datetime.date | None, None] = None  # Optional update to date
-    start_time: Annotated[datetime.time | None, None] = None  # Optional update to start_time
-    end_time: Annotated[datetime.time | None, None] = None  # Optional update to end_time
-    status: Annotated[str | None, None] = None  # Optional update to status
-    reason: Annotated[str | None, None] = None  # Optional update to reason
+    # Optional update to doctor ID  
+    doctor_id: Annotated[int | None, None] = None
 
-# Schema for reading appointment data (with appointment ID) for response
+    # Optional update to patient ID  
+    patient_id: Annotated[int | None, None] = None
+
+    # Optional update to appointment date  
+    date: Annotated[datetime.date | None, None] = None
+
+    # Optional update to start time  
+    start_time: Annotated[datetime.time | None, None] = None
+
+    # Optional update to end time  
+    end_time: Annotated[datetime.time | None, None] = None
+
+    # Optional update to appointment status  
+    status: Annotated[str | None, None] = None
+
+    # Optional update to appointment reason  
+    reason: Annotated[str | None, None] = None
+
+    # Optional update to Google Calendar event ID  
+    event_id: Annotated[str | None, None] = None
+
+# ------------------------------------- Schema for Reading Appointments -------------------------------------
+
+# Schema used to return appointment data in API responses  
 class AppointmentResponse(AppointmentBase):
-    id: int  # Auto-incrementing ID of the appointment
+    # Auto-generated unique ID of the appointment  
+    id: int
 
+    # Enable compatibility with ORM models (e.g., SQLAlchemy)  
     class Config(ConfigDict):
-        from_attributes = True  # To allow Pydantic models to work with SQLAlchemy models
+        from_attributes = True

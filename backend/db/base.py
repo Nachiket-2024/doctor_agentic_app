@@ -1,11 +1,13 @@
-# Import DeclarativeBase from SQLAlchemy's ORM package.
-# DeclarativeBase is the recommended base class in SQLAlchemy 2.0+
-# for defining declarative model classes (i.e., database tables).
+# ---------------------------- External Imports ----------------------------
+
+# Import DeclarativeBase from SQLAlchemy's ORM package for model definitions
 from sqlalchemy.orm import DeclarativeBase
 
 
+# ---------------------------- Base ORM Class Definition ----------------------------
+
 # Define a base class for all ORM models in the application.
-# All model classes (e.g., User, Taal, Raag) will inherit from this `Base` class.
-# This gives SQLAlchemy the metadata and functionality it needs to map models to tables.
+# All model classes (e.g., User, Admin, Appointment) will inherit from this `Base` class.
+# This provides SQLAlchemy the metadata it needs to map models to DB tables.
 class Base(DeclarativeBase):
-    pass  # No extra customization is needed here—just inherit from DeclarativeBase
+    pass  # No additional customization is required at this point

@@ -1,8 +1,11 @@
-# ---------------------------- Imports ----------------------------
-from datetime import datetime, timedelta, time  # For working with dates, time ranges, and slot durations
+# ------------------------------------- External Imports -------------------------------------
 
-# ---------------------------- Slot Generation Function ----------------------------
+# For working with dates, durations, and time objects  
+from datetime import datetime, timedelta, time
 
+# ------------------------------------- Slot Generation Function -------------------------------------
+
+# Function to generate available time slots excluding booked times  
 def generate_available_slots(time_ranges: list[str], slot_duration: int, booked_times: list[time]) -> list[time]:
     """
     Generate available time slots from one or more time ranges, excluding already booked ones.
@@ -16,36 +19,38 @@ def generate_available_slots(time_ranges: list[str], slot_duration: int, booked_
         List[time]: List of available start times (as time objects)
     """
 
-    # Initialize a list to hold all available slots across all ranges
+    # Initialize a list to hold all available slots across all ranges  
     slots = []
 
-    # Loop through each time range in the list
+    # Loop through each time range string provided  
     for time_range in time_ranges:
-        # Split the time range string into start and end times (e.g. "09:00-12:00")
+        # Split the time range into start and end strings (e.g., "09:00-12:00")  
         start_str, end_str = time_range.strip().split("-")
 
-        # Convert the start and end time strings into time objects
+        # Convert the start string into a time object  
         start_time = datetime.strptime(start_str.strip(), "%H:%M").time()
+
+        # Convert the end string into a time object  
         end_time = datetime.strptime(end_str.strip(), "%H:%M").time()
 
-        # Convert to datetime objects so we can do arithmetic with timedelta
+        # Combine the time objects with today's date to allow arithmetic  
         current = datetime.combine(datetime.today(), start_time)
         end = datetime.combine(datetime.today(), end_time)
 
-        # Define the time delta for a single slot
+        # Define the slot size using timedelta  
         delta = timedelta(minutes=slot_duration)
 
-        # Loop to generate slots in this range
+        # Loop to generate slots until reaching the end time  
         while current + delta <= end:
-            # Extract only the time part for the slot
+            # Get the time component only (without date)  
             slot_start = current.time()
 
-            # Add slot if it hasn't been booked already
+            # Include this slot if it's not already booked  
             if slot_start not in booked_times:
                 slots.append(slot_start)
 
-            # Move to the next slot time
+            # Move to the next slot  
             current += delta
 
-    # Return the full list of available slots across all time ranges
+    # Return the list of generated available slot times  
     return slots

@@ -1,24 +1,19 @@
-// Axios config and Patient API endpoints
+// ---------------------------- Imports ----------------------------
+import API from "../utils/axiosInstance";
 
-import axios from "axios";
+// ---------------------------- Patient API Calls ----------------------------
 
-// Base URL config
-const API = axios.create({
-    baseURL: "http://localhost:8000",
-});
-
-// Add JWT token to headers
-API.interceptors.request.use((config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
-
-// API methods
+// GET all patients
 export const getAllPatients = () => API.get("/patient/");
+
+// GET a patient by ID
 export const getPatientById = (id) => API.get(`/patient/${id}`);
+
+// POST: Create a new patient
 export const createPatient = (data) => API.post("/patient/", data);
+
+// PUT: Update an existing patient
 export const updatePatient = (id, data) => API.put(`/patient/${id}`, data);
+
+// DELETE: Delete a patient by ID
 export const deletePatient = (id) => API.delete(`/patient/${id}`);

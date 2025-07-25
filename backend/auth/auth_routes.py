@@ -1,79 +1,87 @@
-# ------------------------------------- Imports -------------------------------------
+# ---------------------------- External Imports ----------------------------
 
-# Import OS module to read environment variables from the system
-import os
+# To read environment variables from the system
+import os  
 
-# FastAPI imports for routing and HTTP handling
+# FastAPI tools for routing, dependencies, and HTTP errors
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
 
-# SQLAlchemy ORM for interacting with the database
-from sqlalchemy.orm import Session
+# Response classes for JSON output and redirection
+from fastapi.responses import JSONResponse, RedirectResponse 
 
-# Load environment variables from a .env file
-from dotenv import load_dotenv
+# SQLAlchemy session for interacting with the database
+from sqlalchemy.orm import Session  
 
-# JWTError to handle exceptions during JWT validation
-from jose import JWTError
+# For loading environment variables from a .env file
+from dotenv import load_dotenv  
 
-# OAuth2 scheme for reading tokens from Authorization headers
-from fastapi.security import OAuth2PasswordBearer
+# To handle JWT decoding and verification errors
+from jose import JWTError  
 
-# Internal utility functions related to authentication logic
+# To extract Bearer token from Authorization header
+from fastapi.security import OAuth2PasswordBearer  
+
+# ---------------------------- Internal Imports ----------------------------
+
+# Internal utility functions for Google auth and JWT
 from .auth_utils import authenticate_with_google, create_jwt_token, verify_jwt_token
 
-# Import User and Admin models from internal modules
-from ..models.user_model import User
-from ..models.admin_model import Admin
+# User model from the database
+from ..models.user_model import User  
 
-# Function to retrieve a database session
-from ..db.session import get_db
+# Admin model from the database
+from ..models.admin_model import Admin 
 
-# Load environment variables (client ID, secret, scopes, etc.) from .env file
+# Dependency for getting DB session
+from ..db.session import get_db  
+
+# ---------------------------- Setup ----------------------------
+
+# Load variables from .env file like client ID, secret, and redirect URIs
 load_dotenv()
 
-# Configure token extraction from Authorization: Bearer <token> header
+# Set up FastAPI's OAuth2PasswordBearer to extract token from Authorization header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Create a FastAPI APIRouter for grouping authentication-related endpoints
+# Create a FastAPI router to group authentication routes
 router = APIRouter(
-    prefix="/auth",            # All endpoints under this router will be prefixed with /auth
-    tags=["Authentication"],   # Tag used for organizing docs in Swagger UI
+    prefix="/auth",            # All endpoints will be prefixed with /auth
+    tags=["Authentication"],   # Tags shown in Swagger docs
 )
-
 
 # ---------------------------- Route: Google Login Initiation ----------------------------
 
 @router.get("/login")
 async def login_with_google(request: Request, db: Session = Depends(get_db)):
     """
-    Initiates the Google OAuth2 flow.
-    Redirects the user to the Google authentication page.
+    Initiates the Google OAuth2 login flow and redirects the user to the Google login page.
     """
     try:
-        # Base URL for Google's OAuth2 authentication endpoint
+        # Google's OAuth2 base URL
         google_oauth_url = "https://accounts.google.com/o/oauth2/v2/auth"
 
-        # Fetch the requested scopes from environment and URL-encode them
-        scopes = os.getenv("GOOGLE_SCOPES", "")             # e.g., openid,email,profile,...
-        formatted_scopes = scopes.replace(",", "%20")       # Convert commas to %20 (space in URL encoding)
+        # Fetch the required scopes from the environment variable
+        scopes = os.getenv("GOOGLE_SCOPES", "")  # e.g., openid,email,profile
 
-        # Construct the full OAuth2 authorization URL
+        # Replace commas with '%20' (space) to create a valid URL
+        formatted_scopes = scopes.replace(",", "%20")
+
+        # Build the complete Google OAuth2 authorization URL
         auth_url = (
             f"{google_oauth_url}?response_type=code"
-            f"&client_id={os.getenv('GOOGLE_CLIENT_ID')}"               # App's client ID
-            f"&redirect_uri={os.getenv('GOOGLE_REDIRECT_URI')}"         # Must match what is set in Google Console
-            f"&scope={formatted_scopes}"                                # Requested scopes
-            f"&access_type=offline"                                     # To get refresh token
-            f"&include_granted_scopes=true"                             # To allow incremental scopes
-            f"&prompt=consent"                                          # Force the consent screen every time
+            f"&client_id={os.getenv('GOOGLE_CLIENT_ID')}"
+            f"&redirect_uri={os.getenv('GOOGLE_REDIRECT_URI')}"
+            f"&scope={formatted_scopes}"
+            f"&access_type=offline"
+            f"&include_granted_scopes=true"
+            f"&prompt=consent"
         )
 
         # Redirect the user to Google's OAuth2 login page
         return RedirectResponse(url=auth_url)
 
     except Exception as e:
-        # Catch and return any exception as a client error
+        # Raise HTTP 400 if any error occurs during the redirect setup
         raise HTTPException(status_code=400, detail=f"Google OAuth2 Authentication Failed: {str(e)}")
 
 
@@ -82,46 +90,38 @@ async def login_with_google(request: Request, db: Session = Depends(get_db)):
 @router.get("/callback")
 async def google_callback(code: str, db: Session = Depends(get_db)):
     """
-    Handle the Google OAuth2 callback and exchange the authorization code for a JWT token.
+    Handles the callback after user logs in with Google.
+    Exchanges code for user info, checks user/admin role, and redirects to frontend with token.
     """
     try:
-        # Step 1: Exchange the authorization code for user info (includes Google email)
+        # Step 1: Authenticate the user via Google using the provided code
         user_info = authenticate_with_google(code, db)
 
-        # Step 2: Check if the authenticated user is an admin
+        # Step 2: Check if the user is an admin
         admin = db.query(Admin).filter(Admin.email == user_info['email']).first()
 
-        # Step 3: Determine the user's role
+        # Step 3: Assign role based on user type
         if admin:
-            role = "admin"  # If admin exists, assign admin role
+            role = "admin"
         else:
-            # If not admin, check if the user exists in the users table
+            # Step 4: Check if the user is already registered
             user = db.query(User).filter(User.email == user_info['email']).first()
-            if user:
-                role = user.role  # Use role from DB
-            else:
-                role = "patient"  # Default to "patient" if user is not found
+            role = user.role if user else "patient"
 
-        # Step 4: Generate a JWT token containing user info
+        # Step 5: Generate a JWT token for the authenticated user
         jwt_token = create_jwt_token(user_info)
 
-        # Debug log (optional): Print the generated JWT token to console
-        print(f"Generated JWT Token: {jwt_token}")
-
-        # Step 5: Define the frontend redirect URL after login
+        # Step 6: Get frontend URL to redirect the user after successful login
         frontend_url = os.getenv("FRONTEND_REDIRECT_URI", "http://localhost:5173/dashboard")
 
-        # Step 6: Append token and role as query params to frontend URL
+        # Step 7: Append token and role to the frontend URL
         redirect_url = f"{frontend_url}?access_token={jwt_token}&role={role}"
 
-        # Debug log (optional): Print the redirect URL
-        print(f"Redirect URL: {redirect_url}")
-
-        # Step 7: Redirect user to frontend with token and role
+        # Step 8: Redirect the user to the frontend with the token
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
-        # Catch and return any exception as a client error
+        # If any step fails, raise a 400 error
         raise HTTPException(status_code=400, detail=f"Google OAuth2 Authentication Failed: {str(e)}")
 
 
@@ -130,15 +130,15 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
 @router.get("/me")
 async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
-    Get current authenticated user's information based on the JWT token.
-    Checks both User and Admin tables.
+    Returns the authenticated user's information based on the JWT token.
+    Looks up both User and Admin tables.
     """
     try:
-        # Step 1: Decode the JWT token and extract the email
+        # Step 1: Decode the JWT token and extract email
         payload = verify_jwt_token(token)
         email = payload["sub"]
 
-        # Step 2: Try finding the user in the User table
+        # Step 2: Try to find the user in the User table
         user = db.query(User).filter(User.email == email).first()
         if user:
             return {
@@ -147,23 +147,23 @@ async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depen
                 "role": user.role
             }
 
-        # Step 3: If not found, try in the Admin table
+        # Step 3: If not a regular user, try to find in Admin table
         admin = db.query(Admin).filter(Admin.email == email).first()
         if admin:
             return {
                 "email": admin.email,
                 "name": admin.name,
-                "role": "admin"  # Role is hardcoded for admins
+                "role": "admin"
             }
 
-        # If neither user nor admin exists, raise not found
+        # Step 4: If not found in either table, raise 404
         raise HTTPException(status_code=404, detail="User not found")
 
     except JWTError:
-        # JWT is invalid or expired
+        # Token is invalid or expired
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     except Exception as e:
-        # General server error
+        # General exception fallback
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -172,8 +172,7 @@ async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depen
 @router.post("/logout")
 async def logout():
     """
-    Logout the user. Since JWT is stateless, this will simply remove the token from the client side.
-    The frontend should delete the token from localStorage/sessionStorage.
+    Logs out the user. Since JWT is stateless, this only tells frontend to delete token.
     """
     return JSONResponse(content={
         "message": "Successfully logged out. Please delete the token from your client(frontend)."

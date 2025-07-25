@@ -1,17 +1,18 @@
-# Import the SQLAlchemy engine instance used to connect to the database.
-# This engine is responsible for issuing SQL commands and transactions.
+# ---------------------------- Internal Imports ----------------------------
+
+# Import the SQLAlchemy engine instance used to connect to the database
 from .session import engine
 
-# Import the base metadata class from your declarative base definition.
-# It holds information about all table models defined using SQLAlchemy ORM.
+# Import the base class that maintains metadata for all models
 from .base import Base
 
-# Import the User model class for the same reason — it must be registered to create its table.
+# Import model classes so their table definitions are registered with SQLAlchemy
 from ..models.user_model import User
-from ..models.company_model import Company
-from ..models.vertical_model import Vertical
-from ..models.balance_sheet_model import BalanceSheet
+from ..models.admin_model import Admin
+from ..models.appointment_model import Appointment
 
+
+# ---------------------------- Database Initialization ----------------------------
 
 def init_db() -> None:
     """
@@ -25,6 +26,8 @@ def init_db() -> None:
     """
     Base.metadata.create_all(bind=engine)
 
+
+# ---------------------------- Entry Point for Direct Execution ----------------------------
 
 # This allows running the script directly (e.g., `python db/init_db.py`) to initialize the DB.
 # When the file is executed as a standalone script, it calls `init_db()` to create tables.

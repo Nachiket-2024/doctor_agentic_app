@@ -1,32 +1,64 @@
-from fastapi import HTTPException, Depends
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from jose import JWTError  # Importing JWTError for exception handling
+# ---------------------------- External Imports ----------------------------
 
-from ..db.session import get_db
-from .auth_utils import verify_jwt_token  # Assuming verify_jwt_token handles the decoding of the JWT
-from ..models.admin_model import Admin  # Import Admin model to query admin table
+# FastAPI exception and dependency tools
+from fastapi import HTTPException, Depends  
 
-# Initialize the OAuth2PasswordBearer scheme to extract token from headers
+# Tool to extract token from the Authorization header using OAuth2
+from fastapi.security import OAuth2PasswordBearer  
+
+# SQLAlchemy session dependency for interacting with the database
+from sqlalchemy.orm import Session  
+
+# Exception class for handling JWT errors
+from jose import JWTError  
+
+# ---------------------------- Internal Imports ----------------------------
+
+# Function to obtain a database session
+from ..db.session import get_db  
+
+# Function to decode and verify JWT tokens
+from .auth_utils import verify_jwt_token  
+
+# Admin model used to check admin privileges
+from ..models.admin_model import Admin  
+
+
+# ---------------------------- OAuth2 Setup ----------------------------
+
+# Initialize the OAuth2PasswordBearer scheme
+# This tells FastAPI to look for a token in the "Authorization: Bearer <token>" header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Dependency to check if the user is an admin
-def admin_only(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        # Decode the JWT token and get the payload (which contains the user's email)
-        payload = verify_jwt_token(token)
-        user_email = payload.get("sub")  # This is the user's email from the JWT token
 
-        # Check if the user exists in the Admin table
+# ---------------------------- Dependency: Admin-Only Access ----------------------------
+
+def admin_only(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """
+    Dependency that allows access only to admin users.
+    Extracts user info from JWT token and checks against the Admin table.
+    """
+    try:
+        # Step 1: Verify and decode the JWT token to get the payload
+        payload = verify_jwt_token(token)
+
+        # Step 2: Extract user email from the payload ('sub' usually holds the subject/user identifier)
+        user_email = payload.get("sub")
+
+        # Step 3: Query the Admin table to check if the user exists and is an admin
         admin = db.query(Admin).filter(Admin.email == user_email).first()
-        
-        # If no admin entry exists, raise an exception
+
+        # Step 4: If no admin record is found, raise 403 Forbidden
         if not admin:
             raise HTTPException(status_code=403, detail="Admin access required")
 
-        return admin  # Optionally return the admin entry if you need it
+        # Step 5: If valid admin, return the admin object (can be used in the route handler if needed)
+        return admin
 
     except JWTError:
+        # Token was invalid or could not be decoded
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
     except Exception as e:
+        # Catch any other unexpected server error
         raise HTTPException(status_code=500, detail=str(e))

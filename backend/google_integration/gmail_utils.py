@@ -1,16 +1,31 @@
-# ------------------------------------- Imports -------------------------------------
-import base64  # For encoding the MIME message
-from email.mime.text import MIMEText  # For creating email content
-from googleapiclient.discovery import build  # For Gmail API service
-from sqlalchemy.orm import Session  # For querying the database
-from fastapi import HTTPException  # For raising error responses
+# ------------------------------------- External Imports -------------------------------------
 
-# Import database models
-from ..models.user_model import User  # Represents the User table
-from ..models.appointment_model import Appointment  # Represents the Appointment table
+# For encoding the MIME message  
+import base64
 
-# Import credentials builder from calendar_utils (shared logic)
-from .calendar_utils import get_google_credentials  # Returns a properly scoped credentials object
+# For creating email content  
+from email.mime.text import MIMEText
+
+# For Gmail API service  
+from googleapiclient.discovery import build
+
+# For querying the database  
+from sqlalchemy.orm import Session
+
+# For raising error responses  
+from fastapi import HTTPException
+
+# ------------------------------------- Internal Imports -------------------------------------
+
+# Import User model from internal user_model module  
+from ..models.user_model import User
+
+# Import Appointment model from internal appointment_model module  
+from ..models.appointment_model import Appointment
+
+# Import function to get Google credentials  
+from .calendar_utils import get_google_credentials
+
 
 # ---------------------------- Send Gmail Message ----------------------------
 def send_email_via_gmail(

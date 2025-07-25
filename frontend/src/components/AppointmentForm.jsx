@@ -1,5 +1,5 @@
 // ---------------------------- Imports ----------------------------
-import React, { useEffect, useState } from "react"; // React and hooks
+import { useEffect, useState } from "react"; // React and hooks
 import {
     createAppointment,
     updateAppointment,
@@ -24,7 +24,7 @@ const AppointmentForm = ({ selectedAppointment, onSuccess }) => {
     const [patients, setPatients] = useState([]);
     const [availableSlots, setAvailableSlots] = useState([]);
 
-    // ---------------------------- Pre-fill on edit ----------------------------
+    // ---------------------------- Pre-fill form if editing ----------------------------
     useEffect(() => {
         if (selectedAppointment) {
             setFormData({
@@ -37,41 +37,56 @@ const AppointmentForm = ({ selectedAppointment, onSuccess }) => {
         }
     }, [selectedAppointment]);
 
-    // ---------------------------- Fetch doctors & patients ----------------------------
+    // ---------------------------- Fetch doctors and patients on mount ----------------------------
     useEffect(() => {
-        getAllDoctors().then((res) => setDoctors(res.data));
-        getAllPatients().then((res) => setPatients(res.data));
+        const fetchData = async () => {
+            try {
+                const doctorRes = await getAllDoctors();
+                const patientRes = await getAllPatients();
+                setDoctors(doctorRes.data);
+                setPatients(patientRes.data);
+            } catch (err) {
+                console.error("Error fetching doctors or patients:", err);
+            }
+        };
+        fetchData();
     }, []);
 
-    // ---------------------------- Fetch slots when doctor/date changes ----------------------------
+    // ---------------------------- Fetch available slots whenever doctor/date changes ----------------------------
     useEffect(() => {
-        if (formData.doctor_id && formData.date) {
-            getAvailableSlots(formData.doctor_id, formData.date).then((res) => {
-                const now = new Date();
-                const today = new Date().toISOString().slice(0, 10);
-                const slots = res.data;
+        const fetchSlots = async () => {
+            if (formData.doctor_id && formData.date) {
+                try {
+                    const res = await getAvailableSlots(formData.doctor_id, formData.date);
+                    const now = new Date();
+                    const today = new Date().toISOString().slice(0, 10);
+                    const slots = res.data;
 
-                // Filter out past times if selected date is today
-                const filtered = slots.filter((slot) => {
-                    if (formData.date > today) return true;
-                    const [h, m] = slot.split(":");
-                    const slotTime = new Date();
-                    slotTime.setHours(h, m, 0, 0);
-                    return slotTime > now;
-                });
+                    // Filter past slots if date is today
+                    const filtered = slots.filter((slot) => {
+                        if (formData.date > today) return true;
+                        const [h, m] = slot.split(":");
+                        const slotTime = new Date();
+                        slotTime.setHours(h, m, 0, 0);
+                        return slotTime > now;
+                    });
 
-                setAvailableSlots(filtered);
-            });
-        }
+                    setAvailableSlots(filtered);
+                } catch (err) {
+                    console.error("Error fetching slots:", err);
+                }
+            }
+        };
+        fetchSlots();
     }, [formData.doctor_id, formData.date]);
 
-    // ---------------------------- Handle form input ----------------------------
+    // ---------------------------- Handle form field changes ----------------------------
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    // ---------------------------- Submit handler ----------------------------
+    // ---------------------------- Handle form submit ----------------------------
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -80,13 +95,13 @@ const AppointmentForm = ({ selectedAppointment, onSuccess }) => {
             } else {
                 await createAppointment(formData);
             }
-            onSuccess(); // Callback to refresh table or close modal
+            onSuccess(); // Refresh parent list or close modal
         } catch (err) {
             console.error("Error submitting appointment:", err);
         }
     };
 
-    // ---------------------------- UI ----------------------------
+    // ---------------------------- Render UI ----------------------------
     return (
         <form onSubmit={handleSubmit} className="p-4 bg-white rounded-xl shadow space-y-4">
             {/* Doctor selection */}
@@ -159,7 +174,7 @@ const AppointmentForm = ({ selectedAppointment, onSuccess }) => {
                 </select>
             </div>
 
-            {/* Reason */}
+            {/* Reason field */}
             <div>
                 <label className="block font-semibold">Reason (optional)</label>
                 <input

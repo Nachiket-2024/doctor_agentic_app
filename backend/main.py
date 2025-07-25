@@ -1,28 +1,50 @@
-# --- Environment setup ---
-from dotenv import load_dotenv                      # Load environment variables from .env
-from pathlib import Path                            # Work with paths in an OS-agnostic way
+# ---------------------------- External Imports ----------------------------
 
-# Calculate base directory of the project
+# Load environment variables from .env file  
+from dotenv import load_dotenv
+
+# Work with file paths in an OS-independent way  
+from pathlib import Path
+
+# Import FastAPI framework  
+from fastapi import FastAPI
+
+# Middleware to handle Cross-Origin Resource Sharing  
+from fastapi.middleware.cors import CORSMiddleware
+
+# ---------------------------- Environment Setup ----------------------------
+
+# Get the base directory (3 levels up from current file)  
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-_ = load_dotenv(dotenv_path=BASE_DIR / ".env")     # Load .env variables
 
-# --- FastAPI imports ---
-from fastapi import FastAPI             # Core FastAPI imports
-from fastapi.middleware.cors import CORSMiddleware # CORS middleware for frontend-backend communication
+# Load environment variables from the .env file in base directory  
+_ = load_dotenv(dotenv_path=BASE_DIR / ".env")
 
-# Auth and Cookie routes
+# ---------------------------- Internal Imports ----------------------------
+
+# Authentication route handlers  
 from .auth.auth_routes import router as auth_router
 
-# --- Import route modules ---
+# Doctor route handlers  
 from .api.doctor_routes import router as doctor_router
+
+# Patient route handlers  
 from .api.patient_routes import router as patient_router
+
+# Appointment route handlers  
 from .api.appointment_routes import router as appointment_router
+
+# Doctor slot availability handlers  
 from .api.doctor_slot_routes import router as doctor_slot_router
 
-# --- Create the FastAPI app instance ---
+# ---------------------------- App Initialization ----------------------------
+
+# Create a FastAPI application instance  
 app = FastAPI()
 
-# --- Enable CORS (allow frontend to access the backend) ---
+# ---------------------------- Middleware Configuration ----------------------------
+
+# Enable CORS to allow frontend (e.g., React app) to access backend  
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -31,14 +53,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Register modular routers with the app ---
-app.include_router(auth_router)         # Handles all /auth routes
-app.include_router(doctor_router)       # Handles all /doctors routes
-app.include_router(doctor_slot_router)  # Handles all /doctor_slot routes
-app.include_router(appointment_router)  # Handles all /appointments routes
-app.include_router(patient_router)      # Handles all /patients routes
+# ---------------------------- Router Registration ----------------------------
 
+# Register authentication-related routes under /auth  
+app.include_router(auth_router)
 
+# Register doctor-specific routes under /doctors  
+app.include_router(doctor_router)
+
+# Register doctor slot management routes under /doctor_slot  
+app.include_router(doctor_slot_router)
+
+# Register appointment-related routes under /appointments  
+app.include_router(appointment_router)
+
+# Register patient-specific routes under /patients  
+app.include_router(patient_router)
+
+# ---------------------------- Root Route ----------------------------
+
+# Define a simple root route to verify the API is running  
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Doctor Agentic app!"}

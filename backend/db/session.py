@@ -1,58 +1,67 @@
-# Import the standard `os` module for accessing environment variables and the typing module
+# ---------------------------- External Imports ----------------------------
+
+# Import the standard `os` module for accessing environment variables
 import os
+
+# Import typing's Generator to define function return types that yield values
 from typing import Generator
 
-# Import SQLAlchemy's engine and session utilities for ORM-based DB access
+# Import SQLAlchemy engine creation and session-related classes
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-# Import dotenv utilities to load environment variables from a .env file
+# Import dotenv to load environment variables from a `.env` file
 from dotenv import load_dotenv
 
-# Import `Path` for cross-platform file system path handling
+# Import `Path` for resolving and constructing filesystem paths
 from pathlib import Path
 
-# --- Load environment variables from the project root ---
 
-# Resolve BASE_DIR to the root of the project (three levels up from this file)
-# Useful when running code from subdirectories (e.g., scripts, tests)
+# ---------------------------- Load Environment Variables ----------------------------
+
+# Resolve the project root directory (three levels up from this file)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Construct the path to the `.env` file in the root directory
+# Construct the path to the `.env` file located at the root
 env_path = BASE_DIR / ".env"
 
-# Load all variables from the .env file into the environment
+# Load environment variables from the `.env` file into the current environment
 _ = load_dotenv(dotenv_path=env_path)
 
 
-# --- Get the database connection URL ---
+# ---------------------------- Database Configuration ----------------------------
 
-# Try fetching the DATABASE_URL from environment variables (from .env or system)
+# Fetch the database URL from the environment
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Fail early if the variable is not defined
+# Raise an error if the environment variable is missing
 if SQLALCHEMY_DATABASE_URL is None:
     raise ValueError("DATABASE_URL is not set in the .env file.")
 
-# Extract the database name from the URL
+# Extract the database name from the connection URL (for logging/debugging if needed)
 db_name = SQLALCHEMY_DATABASE_URL.split('/')[-1]
 
-# --- SQLAlchemy Engine and Session setup ---
 
-# Create the SQLAlchemy engine instance
-# This manages the connection pool and issues actual SQL to the database
+# ---------------------------- SQLAlchemy Engine and Session Setup ----------------------------
+
+# Create the SQLAlchemy engine instance to manage DB connections
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
-# Create a sessionmaker — this is a factory to create new DB sessions
-# - `autocommit=False`: You must call `commit()` explicitly.
-# - `autoflush=False`: ORM changes aren't auto-flushed to DB unless manually done.
-# - `bind=engine`: Ties this session to our database engine.
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Create a sessionmaker instance to create new database sessions
+SessionLocal = sessionmaker(
+    autocommit=False,  # Disable automatic commit — manual commit required
+    autoflush=False,   # Disable automatic flush of changes to the DB
+    bind=engine        # Bind this sessionmaker to our DB engine
+)
 
-# Dependency to get the database session
+
+# ---------------------------- Dependency for DB Session ----------------------------
+
+# Define a generator function to provide a database session
+# This is typically used in FastAPI routes as a dependency
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()  # Create a new session
     try:
-        yield db  # Yield the session for use in route
+        yield db          # Yield the session to the request handler
     finally:
-        db.close()  # Ensure the session is closed after request
+        db.close()        # Ensure session is closed after the request finishes

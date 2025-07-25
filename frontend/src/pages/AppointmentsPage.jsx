@@ -1,94 +1,138 @@
 // ---------------------------- Imports ----------------------------
-import React, { useEffect, useState } from "react"; // React and hooks for state and lifecycle
+
+// React hooks
+import { useEffect, useState, useRef } from "react";
+
+// Service functions for appointments
 import {
     getAllAppointments,
     deleteAppointment,
-} from "../services/appointmentService"; // Appointment API functions
-import AppointmentForm from "../components/AppointmentForm"; // Reusable form component
-import { getAllDoctors } from "../services/doctorService"; // Doctor API call
-import { getAllPatients } from "../services/patientService"; // Patient API call
-import { toast, ToastContainer } from "react-toastify"; // Toast system for notifications
-import "react-toastify/dist/ReactToastify.css"; // Toast CSS styles
+} from "../services/appointmentService";
+
+// Reusable form component for creating/editing appointments
+import AppointmentForm from "../components/AppointmentForm";
+
+// Service functions for fetching doctor data
+import { getAllDoctors } from "../services/doctorService";
+
+// Service functions for fetching patient data
+import { getAllPatients } from "../services/patientService";
+
+// Toast notification API and its styles
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // ---------------------------- Component ----------------------------
 const AppointmentsPage = () => {
-    // Appointment data state
-    const [appointments, setAppointments] = useState([]);
-    const [selectedAppointment, setSelectedAppointment] = useState(null); // For editing
-    const [showForm, setShowForm] = useState(false); // Toggle for showing form
+    // ---------------------------- State ----------------------------
 
-    // Maps to resolve doctor/patient IDs to names
+    // All appointments
+    const [appointments, setAppointments] = useState([]);
+
+    // Selected appointment (used when editing)
+    const [selectedAppointment, setSelectedAppointment] = useState(null);
+
+    // Controls form visibility
+    const [showForm, setShowForm] = useState(false);
+
+    // Mapping doctor IDs to names
     const [doctorMap, setDoctorMap] = useState({});
+
+    // Mapping patient IDs to names
     const [patientMap, setPatientMap] = useState({});
 
-    // ---------------------------- Load all necessary data ----------------------------
+    // ---------------------------- StrictMode Guard ----------------------------
+
+    // Ensures fetch logic only runs once even under React.StrictMode (dev only)
+    const hasFetchedRef = useRef(false);
+
+    // ---------------------------- useEffect for Data Load ----------------------------
     useEffect(() => {
-        // Load appointments and mapping data on component mount
+        // Only fetch once
+        if (hasFetchedRef.current) return;
+        hasFetchedRef.current = true;
+
+        // Load appointments
         fetchAllAppointments();
-        getAllDoctors().then((res) => {
-            const map = {};
-            res.data.forEach((doc) => (map[doc.id] = doc.name)); // Map id to name
-            setDoctorMap(map);
-        });
-        getAllPatients().then((res) => {
-            const map = {};
-            res.data.forEach((pat) => (map[pat.id] = pat.name)); // Map id to name
-            setPatientMap(map);
-        });
+
+        // Load doctors
+        getAllDoctors()
+            .then((res) => {
+                const map = {};
+                res.data.forEach((doc) => (map[doc.id] = doc.name));
+                setDoctorMap(map);
+            })
+            .catch((err) => {
+                console.error("Error loading doctors:", err);
+                toast.error("Failed to load doctors");
+            });
+
+        // Load patients
+        getAllPatients()
+            .then((res) => {
+                const map = {};
+                res.data.forEach((pat) => (map[pat.id] = pat.name));
+                setPatientMap(map);
+            })
+            .catch((err) => {
+                console.error("Error loading patients:", err);
+                toast.error("Failed to load patients");
+            });
     }, []);
 
-    // Function to fetch all appointments and handle errors
+    // ---------------------------- API Calls ----------------------------
+
+    // Fetches all appointments from the backend
     const fetchAllAppointments = () => {
         getAllAppointments()
             .then((res) => {
-                setAppointments(res.data); // Store data in state
-                toast.success("Appointments loaded"); // Show success toast
+                setAppointments(res.data);
+                toast.success("Appointments loaded");
             })
             .catch((err) => {
-                console.error("Error fetching appointments:", err); // Log error for debugging
-                toast.error("Failed to load appointments"); // Show error toast
+                console.error("Error fetching appointments:", err);
+                toast.error("Failed to load appointments");
             });
     };
 
     // ---------------------------- Handlers ----------------------------
 
-    // Open form modal for create or edit
+    // Open form to create or edit an appointment
     const handleOpenForm = (appt = null) => {
-        setSelectedAppointment(appt); // Set selected appt for editing
-        setShowForm(true); // Show the form
+        setSelectedAppointment(appt); // If null, it's a new appointment
+        setShowForm(true);
     };
 
-    // Delete appointment by ID and handle success/error
+    // Delete an appointment by ID
     const handleDelete = async (id) => {
         if (window.confirm("Are you sure you want to delete this appointment?")) {
             try {
-                await deleteAppointment(id); // Delete API call
-                toast.success("Appointment deleted successfully!"); // Show success toast
-                fetchAllAppointments(); // Refresh list
+                await deleteAppointment(id);
+                toast.success("Appointment deleted");
+                fetchAllAppointments(); // Refresh list after deletion
             } catch (error) {
-                console.error("Error deleting appointment:", error); // Debug log
-                const message =
-                    error.response?.data?.detail || "Error deleting appointment."; // Extract detail if present
-                toast.error(message); // Show error toast
+                console.error("Error deleting appointment:", error);
+                const message = error.response?.data?.detail || "Error deleting appointment";
+                toast.error(message);
             }
         }
     };
 
-    // Callback when appointment form is submitted successfully
+    // Handle successful form submission
     const handleFormSuccess = () => {
-        setShowForm(false); // Hide form
-        setSelectedAppointment(null); // Reset selected
-        toast.success("Appointment saved successfully!"); // Show success toast
-        fetchAllAppointments(); // Refresh list
+        setShowForm(false);
+        setSelectedAppointment(null);
+        toast.success("Appointment saved");
+        fetchAllAppointments(); // Refresh list after add/edit
     };
 
-    // ---------------------------- UI ----------------------------
+    // ---------------------------- Render ----------------------------
     return (
         <div className="p-6">
-            {/* Toast message container (only needed once in app) */}
+            {/* Toast container for notifications */}
             <ToastContainer position="top-right" autoClose={3000} />
 
-            {/* Header section with Dashboard and New buttons */}
+            {/* Header section */}
             <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center space-x-4">
                     <h2 className="text-2xl font-bold">Appointments</h2>
@@ -99,6 +143,8 @@ const AppointmentsPage = () => {
                         Go to Dashboard
                     </button>
                 </div>
+
+                {/* Button to create a new appointment */}
                 <button
                     onClick={() => handleOpenForm()}
                     className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
@@ -107,7 +153,7 @@ const AppointmentsPage = () => {
                 </button>
             </div>
 
-            {/* Table displaying all appointments */}
+            {/* Appointments table */}
             <div className="overflow-x-auto">
                 <table className="min-w-full bg-white shadow-md rounded-xl overflow-hidden">
                     <thead>
@@ -122,7 +168,6 @@ const AppointmentsPage = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {/* Render each appointment row */}
                         {appointments.map((appt) => (
                             <tr key={appt.id} className="border-t hover:bg-gray-50">
                                 <td className="py-2 px-4">
@@ -139,13 +184,13 @@ const AppointmentsPage = () => {
                                 <td className="py-2 px-4">{appt.reason}</td>
                                 <td className="py-2 px-4 space-x-2">
                                     <button
-                                        onClick={() => handleOpenForm(appt)} // Edit
+                                        onClick={() => handleOpenForm(appt)}
                                         className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
                                     >
                                         Edit
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(appt.id)} // Delete
+                                        onClick={() => handleDelete(appt.id)}
                                         className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
                                     >
                                         Delete
@@ -153,7 +198,6 @@ const AppointmentsPage = () => {
                                 </td>
                             </tr>
                         ))}
-                        {/* Empty state message */}
                         {appointments.length === 0 && (
                             <tr>
                                 <td colSpan="7" className="text-center py-6 text-gray-500">
@@ -165,12 +209,12 @@ const AppointmentsPage = () => {
                 </table>
             </div>
 
-            {/* Form/modal section for creating or editing appointments */}
+            {/* Appointment form rendered conditionally */}
             {showForm && (
                 <div className="mt-6 bg-gray-100 p-4 rounded-xl border">
                     <AppointmentForm
-                        selectedAppointment={selectedAppointment} // Pass selected appt
-                        onSuccess={handleFormSuccess} // Callback on success
+                        selectedAppointment={selectedAppointment}
+                        onSuccess={handleFormSuccess}
                     />
                 </div>
             )}
@@ -178,5 +222,6 @@ const AppointmentsPage = () => {
     );
 };
 
-// Export the page component
+// ---------------------------- Export ----------------------------
+
 export default AppointmentsPage;

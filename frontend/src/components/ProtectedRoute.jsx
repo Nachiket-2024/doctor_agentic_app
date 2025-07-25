@@ -1,9 +1,9 @@
-// --- React hooks and routing helpers ---
+// ---------------------------- React hooks and routing helpers ----------------------------
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-// --- Axios for HTTP requests ---
-import axios from "axios";
+// ---------------------------- Centralized Axios Instance ----------------------------
+import API from "../utils/axiosInstance";
 
 export default function ProtectedRoute({ children }) {
   const navigate = useNavigate();             // For programmatic redirects
@@ -35,15 +35,10 @@ export default function ProtectedRoute({ children }) {
       return;
     }
 
-    // --- If token exists, validate it via /auth/me API ---
-    axios
-      .get("http://localhost:8000/auth/me", {
-        headers: {
-          Authorization: `Bearer ${storedToken}`,
-        },
-      })
+    // --- If token exists, validate it via /auth/me API using shared axios instance ---
+    API.get("/auth/me") // Base URL and headers handled automatically
       .then(() => {
-        setCheckingAuth(false); // Auth success
+        setCheckingAuth(false);
       })
       .catch(() => {
         // --- Token is invalid or expired, redirect back to login ---

@@ -1,63 +1,67 @@
-// --- Import necessary React hooks and services ---
-import React, { useState, useEffect } from "react";
-import { createDoctor, updateDoctor } from "../services/doctorService";
+// ---------------------------- Imports ----------------------------
+import { useState, useEffect } from "react"; // React hooks for state and lifecycle
+import {
+    createDoctor,
+    updateDoctor,
+} from "../services/doctorService"; // Service functions for API interaction
 
+// ---------------------------- Component ----------------------------
 const DoctorForm = ({ onSuccess, existingDoctor, clearEdit }) => {
-    // --- Initial form state ---
+    // ---------------------------- State: Form values ----------------------------
     const [form, setForm] = useState({
-        name: "",
-        email: "",
-        specialization: "",
-        available_days: { mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
-        slot_duration: 15,
+        name: "", // Doctor's name
+        email: "", // Doctor's email
+        specialization: "", // Doctor's field
+        available_days: {
+            mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "", // Available times per day
+        },
+        slot_duration: 15, // Time slot duration in minutes
     });
 
-    // --- On edit, set form data ---
+    // ---------------------------- Prefill form on edit ----------------------------
     useEffect(() => {
-        if (existingDoctor) setForm(existingDoctor);
+        if (existingDoctor) setForm(existingDoctor); // If editing, pre-fill form
     }, [existingDoctor]);
 
-    // --- Handle form submission (create or update) ---
+    // ---------------------------- Handle form submission ----------------------------
     const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        const token = localStorage.getItem("access_token");  // Get the token from localStorage
-
-        if (!token) {
-            alert("Unauthorized, please login again.");
-            return;
-        }
+        e.preventDefault(); // Prevent page reload on form submission
 
         try {
             if (existingDoctor) {
-                await updateDoctor(existingDoctor.id, form);  // Update doctor
-                clearEdit();
+                // If editing an existing doctor
+                await updateDoctor(existingDoctor.id, form);
+                clearEdit(); // Clear edit state after update
             } else {
-                await createDoctor(form);  // Create doctor
+                // If creating a new doctor
+                await createDoctor(form);
             }
 
-            onSuccess();  // Callback to refresh parent component data
-            resetForm();  // Reset form after submission
+            onSuccess(); // Notify parent to refresh data
+            resetForm(); // Clear the form fields
         } catch (err) {
-            console.error("Error submitting form", err);
-            alert("An error occurred while submitting the form");
+            console.error("Error submitting form", err); // Log any error
+            alert("An error occurred while submitting the form"); // Show error to user
         }
     };
 
-    // --- Reset form state ---
+    // ---------------------------- Reset form values ----------------------------
     const resetForm = () => {
         setForm({
             name: "",
             email: "",
             specialization: "",
-            available_days: { mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+            available_days: {
+                mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "",
+            },
             slot_duration: 15,
         });
     };
 
+    // ---------------------------- UI: Render form ----------------------------
     return (
         <form onSubmit={handleSubmit} className="mb-4 p-4 border rounded-md shadow-md">
-            {/* Input fields */}
+            {/* Name input */}
             <input
                 type="text"
                 placeholder="Name"
@@ -66,6 +70,8 @@ const DoctorForm = ({ onSuccess, existingDoctor, clearEdit }) => {
                 required
                 className="p-2 mb-2 w-full"
             />
+
+            {/* Email input */}
             <input
                 type="email"
                 placeholder="Email"
@@ -74,6 +80,8 @@ const DoctorForm = ({ onSuccess, existingDoctor, clearEdit }) => {
                 required
                 className="p-2 mb-2 w-full"
             />
+
+            {/* Specialization input */}
             <input
                 type="text"
                 placeholder="Specialization"
@@ -82,7 +90,7 @@ const DoctorForm = ({ onSuccess, existingDoctor, clearEdit }) => {
                 className="p-2 mb-2 w-full"
             />
 
-            {/* Dynamic available_days input (for each day) */}
+            {/* Weekly availability input fields */}
             <div className="grid grid-cols-2 gap-4">
                 {Object.keys(form.available_days).map((day) => (
                     <div key={day} className="flex flex-col">
@@ -94,7 +102,10 @@ const DoctorForm = ({ onSuccess, existingDoctor, clearEdit }) => {
                             onChange={(e) =>
                                 setForm({
                                     ...form,
-                                    available_days: { ...form.available_days, [day]: e.target.value },
+                                    available_days: {
+                                        ...form.available_days,
+                                        [day]: e.target.value,
+                                    },
                                 })
                             }
                             className="p-2 mb-2"
@@ -103,7 +114,7 @@ const DoctorForm = ({ onSuccess, existingDoctor, clearEdit }) => {
                 ))}
             </div>
 
-            {/* Slot duration */}
+            {/* Slot duration input */}
             <input
                 type="number"
                 placeholder="Slot Duration (in minutes)"
