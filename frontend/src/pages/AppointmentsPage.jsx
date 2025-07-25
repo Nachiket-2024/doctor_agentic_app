@@ -88,9 +88,17 @@ const AppointmentsPage = () => {
             {/* Toast message container (only needed once in app) */}
             <ToastContainer position="top-right" autoClose={3000} />
 
-            {/* Header section with button */}
+            {/* Header section with Dashboard and New buttons */}
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">Appointments</h2>
+                <div className="flex items-center space-x-4">
+                    <h2 className="text-2xl font-bold">Appointments</h2>
+                    <button
+                        onClick={() => (window.location.href = "/dashboard")}
+                        className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                    >
+                        Go to Dashboard
+                    </button>
+                </div>
                 <button
                     onClick={() => handleOpenForm()}
                     className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"

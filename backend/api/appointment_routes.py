@@ -63,6 +63,7 @@ async def create_appointment(
     try:
         payload = verify_jwt_token(token)
         user_role = payload.get("role")
+        refresh_token = payload.get("refresh_token")
 
         if user_role not in ["admin", "patient"]:
             raise HTTPException(status_code=403, detail="Only admin or patient can create an appointment")
@@ -103,7 +104,7 @@ async def create_appointment(
 
         patient = db.query(User).filter(User.id == new_appointment.patient_id).first()
 
-        send_email_via_gmail(patient.email, "Appointment Confirmation", new_appointment.id, db)
+        send_email_via_gmail(token, refresh_token, patient.email, "Appointment Confirmation", new_appointment.id, db)
         create_event(
             f"Appointment with Dr. {doctor.name}",
             f"{new_appointment.date}T{new_appointment.start_time}:00",
@@ -125,18 +126,18 @@ async def update_appointment(
     db: Session = Depends(get_db)
 ):
     try:
+        payload = verify_jwt_token(token)
         admin_only(token, db)
+        refresh_token = payload.get("refresh_token")
 
         appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
         if not appointment:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
-        # Determine final doctor_id and date
         doctor_id = appointment_update.doctor_id or appointment.doctor_id
         date = appointment_update.date or appointment.date
         start_time = appointment_update.start_time or appointment.start_time
 
-        # Get doctor and validate availability
         doctor = db.query(User).filter(User.id == doctor_id).first()
         weekday_key = calendar.day_name[date.weekday()].lower()[:3]
         available_days = doctor.available_days or {}
@@ -148,7 +149,7 @@ async def update_appointment(
         booked = db.query(Appointment).filter(
             Appointment.doctor_id == doctor_id,
             Appointment.date == date,
-            Appointment.id != appointment_id  # Exclude current appointment
+            Appointment.id != appointment_id
         ).all()
         booked_times = [appt.start_time for appt in booked]
         available_slots = generate_available_slots(time_range, doctor.slot_duration or 30, booked_times)
@@ -156,7 +157,6 @@ async def update_appointment(
         if start_time not in available_slots:
             raise HTTPException(status_code=400, detail="Selected time slot is already booked or unavailable")
 
-        # Update fields
         appointment.doctor_id = doctor_id
         appointment.patient_id = appointment_update.patient_id or appointment.patient_id
         appointment.date = date
@@ -168,8 +168,8 @@ async def update_appointment(
         db.commit()
         db.refresh(appointment)
 
-        # Send updates
         patient = db.query(User).filter(User.id == appointment.patient_id).first()
+
         update_event(
             appointment_id,
             f"Updated Appointment with Dr. {doctor.name}",
@@ -177,13 +177,12 @@ async def update_appointment(
             f"{appointment.date}T{appointment.end_time}:00",
             patient.email
         )
-        send_email_via_gmail(patient.email, "Updated Appointment", appointment.id, db)
+        send_email_via_gmail(token, refresh_token, patient.email, "Updated Appointment", appointment.id, db)
 
         return appointment
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
 
 # ---------------------------- Get All Appointments ----------------------------
 @router.get("/", response_model=list[AppointmentResponse])
@@ -204,19 +203,15 @@ async def get_all_appointments(
 
         if user_role == "admin":
             return db.query(Appointment).all()
-
         elif user_role == "doctor":
             return db.query(Appointment).filter(Appointment.doctor_id == user_id).all()
-
         elif user_role == "patient":
             return db.query(Appointment).filter(Appointment.patient_id == user_id).all()
-
         else:
             raise HTTPException(status_code=403, detail="Not authorized to view appointments.")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # ---------------------------- Delete Appointment ----------------------------
 @router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -226,7 +221,9 @@ async def delete_appointment(
     db: Session = Depends(get_db)
 ):
     try:
+        payload = verify_jwt_token(token)
         admin_only(token, db)
+        refresh_token = payload.get("refresh_token")
 
         appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
         if not appointment:
@@ -235,10 +232,9 @@ async def delete_appointment(
         db.delete(appointment)
         db.commit()
 
-        # Notify patient
         patient = db.query(User).filter(User.id == appointment.patient_id).first()
         delete_event(appointment_id)
-        send_email_via_gmail(patient.email, "Appointment Cancellation", appointment.id, db)
+        send_email_via_gmail(token, refresh_token, patient.email, "Appointment Cancellation", appointment.id, db)
 
         return  # Will automatically return 204 No Content
 
