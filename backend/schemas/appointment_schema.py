@@ -12,21 +12,6 @@ class AppointmentBase(BaseModel):
     status: str = 'scheduled'  # Appointment status (default is 'scheduled')
     reason: Annotated[str | None, None] = None  # Optional reason or notes
 
-    # --- Validator: automatically sets end_time = start_time + 30 minutes if not given ---
-    @field_validator('end_time', mode='before')
-    @classmethod
-    def ensure_end_time(cls, v, values: dict):
-        if v is None:
-            # Accessing values directly from the 'values' dictionary
-            start_time = values.get('start_time')  # Accessing values from the dict
-            date = values.get('date')
-
-            if start_time and date:
-                start = datetime.datetime.combine(date, start_time)
-                return (start + datetime.timedelta(minutes=30)).time()
-
-        return v
-
 # Schema for creating appointments
 class AppointmentCreate(AppointmentBase):
     pass  # Inherits the same structure as AppointmentBase for creating appointments
@@ -40,21 +25,6 @@ class AppointmentUpdate(BaseModel):
     end_time: Annotated[datetime.time | None, None] = None  # Optional update to end_time
     status: Annotated[str | None, None] = None  # Optional update to status
     reason: Annotated[str | None, None] = None  # Optional update to reason
-
-    # --- Validator: automatically sets end_time = start_time + 30 minutes if not given ---
-    @field_validator('end_time', mode='before')
-    @classmethod
-    def ensure_end_time(cls, v, values: dict):
-        if v is None:
-            # Accessing values directly from the 'values' dictionary
-            start_time = values.get('start_time')  # Accessing values from the dict
-            date = values.get('date')
-
-            if start_time and date:
-                start = datetime.datetime.combine(date, start_time)
-                return (start + datetime.timedelta(minutes=30)).time()
-
-        return v
 
 # Schema for reading appointment data (with appointment ID) for response
 class AppointmentResponse(AppointmentBase):

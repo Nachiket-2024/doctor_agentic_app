@@ -1,122 +1,133 @@
-import os
-from dotenv import load_dotenv
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
+# Import required modules
+import os  # Used for accessing environment variables and file paths
+from dotenv import load_dotenv  # Loads variables from a .env file into environment
+from google.oauth2.credentials import Credentials  # Manages user credentials
+from google_auth_oauthlib.flow import InstalledAppFlow  # Handles OAuth 2.0 flow for installed apps
+from googleapiclient.discovery import build  # Builds the Google API service
+from google.auth.transport.requests import Request  # Used to refresh expired credentials
 
-# Load environment variables from .env file
+# Load environment variables from .env file in the root directory
 load_dotenv()
 
-# Fetch Google OAuth credentials and SCOPES from environment variables
-CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
-SCOPES = os.getenv("GOOGLE_SCOPES").split(", ")
-TOKEN_FILE = os.getenv("GOOGLE_TOKEN_FILE", "token.json")  # Path to store the user's token
+# Fetch Google OAuth credentials and settings from environment variables
+CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")  # Your app's Google Client ID
+CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")  # Your app's Client Secret
+REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")  # Redirect URI configured in Google Cloud Console
+SCOPES = os.getenv("GOOGLE_SCOPES").split(", ")  # List of OAuth scopes required (comma-separated in .env)
+TOKEN_FILE = os.getenv("GOOGLE_TOKEN_FILE", "token.json")  # Path to the token file for storing credentials
 
 def get_calendar_service():
     """
     Authenticates the user and returns a Google Calendar service object.
     """
-    creds = None
-    # Check if token file exists (stores access/refresh token pair)
+    creds = None  # Initialize credentials to None
+    
+    # Check if token file exists (stores access and refresh tokens)
     if os.path.exists(TOKEN_FILE):
+        # Load credentials from the token file
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
     
-    # If credentials are invalid or expired, refresh or authenticate the user
+    # If no valid credentials exist, refresh or obtain new credentials via OAuth flow
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())  # Refresh expired credentials using the refresh token
+            # Refresh expired credentials using the refresh token
+            creds.refresh(Request())
         else:
-            # If no credentials exist, run the OAuth flow to get new credentials
+            # Initiate OAuth flow using client config from .env variables
             flow = InstalledAppFlow.from_client_config(
                 {
-                    "client_id": CLIENT_ID,
-                    "client_secret": CLIENT_SECRET,
-                    "redirect_uris": [REDIRECT_URI]
+                    "installed": {
+                        "client_id": CLIENT_ID,
+                        "client_secret": CLIENT_SECRET,
+                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                        "redirect_uris": [REDIRECT_URI]
+                    }
                 },
-                SCOPES
+                SCOPES  # Scopes for permissions
             )
-            creds = flow.run_local_server(port=0)  # Starts a local web server for OAuth2 login
-    
-        # Save the credentials to a token file for future use
+            # Open local browser to authorize the app and get credentials
+            creds = flow.run_local_server(port=0)
+        
+        # Save the obtained credentials to token.json for future use
         with open(TOKEN_FILE, 'w') as token:
             token.write(creds.to_json())
     
-    # Build the Google Calendar service using the credentials
+    # Build and return the Google Calendar service object
     service = build('calendar', 'v3', credentials=creds)
     return service
 
 def create_event(summary, start_time, end_time, email):
     """
-    Creates a Google Calendar event for a given time period and email.
+    Creates a Google Calendar event for a given time period and attendee email.
     """
-    service = get_calendar_service()  # Get the authenticated Google Calendar service
+    service = get_calendar_service()  # Get an authenticated calendar service instance
     
-    # Define the event structure
+    # Define the event structure for Google Calendar API
     event = {
-        'summary': summary,  # Title of the event (e.g., "Appointment with John")
+        'summary': summary,  # Event title (e.g., "Appointment with John")
         'start': {
-            'dateTime': start_time,  # Start date and time of the event
-            'timeZone': 'Asia/Kolkata'  # Timezone for the event
+            'dateTime': start_time,  # ISO 8601 format datetime string for event start
+            'timeZone': 'Asia/Kolkata'  # Set the time zone to IST
         },
         'end': {
-            'dateTime': end_time,  # End date and time of the event
-            'timeZone': 'Asia/Kolkata'  # Timezone for the event
+            'dateTime': end_time,  # ISO 8601 format datetime string for event end
+            'timeZone': 'Asia/Kolkata'
         },
-        'attendees': [{'email': email}],  # Attendee email (Doctor or Patient)
+        'attendees': [{'email': email}],  # Email address of attendee (doctor or patient)
     }
     
-    # Insert the event into the primary calendar of the user
+    # Insert the event into the user's primary calendar and return the result
     event_result = service.events().insert(calendarId='primary', body=event).execute()
-    return event_result  # Returns the created event result
+    return event_result
 
 def update_event(appointment_id, summary, start_time, end_time, email):
     """
-    Updates an existing Google Calendar event.
+    Updates an existing Google Calendar event with new details.
     """
-    service = get_calendar_service()  # Get the authenticated Google Calendar service
-    
-    # Define the event structure for the update
+    service = get_calendar_service()  # Get an authenticated calendar service instance
+
+    # Define the updated event fields
     event = {
-        'summary': summary,  # Updated title of the event (e.g., "Updated Appointment with John")
+        'summary': summary,  # Updated title of the event
         'start': {
-            'dateTime': start_time,  # Updated start date and time
-            'timeZone': 'Asia/Kolkata'  # Timezone for the event
+            'dateTime': start_time,  # Updated start datetime
+            'timeZone': 'Asia/Kolkata'
         },
         'end': {
-            'dateTime': end_time,  # Updated end date and time
-            'timeZone': 'Asia/Kolkata'  # Timezone for the event
+            'dateTime': end_time,  # Updated end datetime
+            'timeZone': 'Asia/Kolkata'
         },
-        'attendees': [{'email': email}],  # Attendee email (Doctor or Patient)
+        'attendees': [{'email': email}],  # Updated attendee email
     }
 
-    # Fetch the event using its appointment ID (if you store the event ID in the database)
-    event_id = f"appointment-{appointment_id}"  # This could be the actual ID of the event in your DB or system
+    # Use the appointment ID as a placeholder for the event ID (this assumes event ID = "appointment-{id}")
+    event_id = f"appointment-{appointment_id}"  # Replace with actual Google event ID in production
 
-    # Update the existing event using the Google Calendar API
+    # Call Google Calendar API to update the existing event
     event_result = service.events().update(
         calendarId='primary',
         eventId=event_id,
         body=event
     ).execute()
     
-    return event_result  # Returns the updated event result
+    return event_result
 
 def delete_event(appointment_id):
     """
-    Deletes a Google Calendar event.
+    Deletes a Google Calendar event using its appointment ID.
     """
-    service = get_calendar_service()  # Get the authenticated Google Calendar service
-    
-    # Fetch the event using its appointment ID (if you store the event ID in the database)
-    event_id = f"appointment-{appointment_id}"  # This could be the actual ID of the event in your DB or system
+    service = get_calendar_service()  # Get an authenticated calendar service instance
 
-    # Delete the event from the Google Calendar
+    # Construct the event ID from the appointment ID (used in creation or DB mapping)
+    event_id = f"appointment-{appointment_id}"  # Replace with real event ID if different
+
+    # Call the API to delete the event from the primary calendar
     service.events().delete(
         calendarId='primary',
         eventId=event_id
     ).execute()
     
-    return {"message": "Event deleted successfully"}  # Return a success message when the event is deleted
+    # Return confirmation of successful deletion
+    return {"message": "Event deleted successfully"}

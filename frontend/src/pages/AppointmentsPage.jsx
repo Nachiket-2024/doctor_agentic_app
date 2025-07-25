@@ -1,324 +1,174 @@
-import { useState, useEffect } from "react";
-import axios from "axios";  // For making HTTP requests
-import { useNavigate } from "react-router-dom";  // For navigation
+// ---------------------------- Imports ----------------------------
+import React, { useEffect, useState } from "react"; // React and hooks for state and lifecycle
+import {
+    getAllAppointments,
+    deleteAppointment,
+} from "../services/appointmentService"; // Appointment API functions
+import AppointmentForm from "../components/AppointmentForm"; // Reusable form component
+import { getAllDoctors } from "../services/doctorService"; // Doctor API call
+import { getAllPatients } from "../services/patientService"; // Patient API call
+import { toast, ToastContainer } from "react-toastify"; // Toast system for notifications
+import "react-toastify/dist/ReactToastify.css"; // Toast CSS styles
 
-export default function AppointmentsPage() {
-    const navigate = useNavigate();
-    const [appointments, setAppointments] = useState([]);   // To store appointment data
-    const [loading, setLoading] = useState(true);  // To track loading state
-    const [error, setError] = useState(null);      // To track any errors
-    const [successMessage, setSuccessMessage] = useState(null); // To track success message
-    const [newAppointment, setNewAppointment] = useState({
-        doctor_id: "",
-        patient_id: "",
-        date: "",
-        start_time: "",
-        end_time: "",
-        status: "scheduled",
-        reason: "",
-    }); // State for creating a new appointment
+// ---------------------------- Component ----------------------------
+const AppointmentsPage = () => {
+    // Appointment data state
+    const [appointments, setAppointments] = useState([]);
+    const [selectedAppointment, setSelectedAppointment] = useState(null); // For editing
+    const [showForm, setShowForm] = useState(false); // Toggle for showing form
 
-    const [updateAppointmentData, setUpdateAppointmentData] = useState({
-        doctor_id: "",
-        patient_id: "",
-        date: "",
-        start_time: "",
-        end_time: "",
-        status: "",
-        reason: "",
-    }); // State for updating an existing appointment
+    // Maps to resolve doctor/patient IDs to names
+    const [doctorMap, setDoctorMap] = useState({});
+    const [patientMap, setPatientMap] = useState({});
 
-    const [selectedAppointment, setSelectedAppointment] = useState(null); // Selected appointment for update
-
-    // State for controlling visibility of appointments list
-    const [isAppointmentsListVisible, setIsAppointmentsListVisible] = useState(false);
-
-    // Loading states for each operation
-    const [createLoading, setCreateLoading] = useState(false);
-    const [updateLoading, setUpdateLoading] = useState(false);
-    const [deleteLoading, setDeleteLoading] = useState(false);
-
-    // Fetch all appointments on component mount
+    // ---------------------------- Load all necessary data ----------------------------
     useEffect(() => {
-        axios.get("http://localhost:8000/appointments", { withCredentials: true })
-            .then((res) => {
-                setAppointments(res.data);
-                setLoading(false);
-            })
-            .catch((err) => {
-                setError("Error fetching appointments");
-                setLoading(false);
-            });
+        // Load appointments and mapping data on component mount
+        fetchAllAppointments();
+        getAllDoctors().then((res) => {
+            const map = {};
+            res.data.forEach((doc) => (map[doc.id] = doc.name)); // Map id to name
+            setDoctorMap(map);
+        });
+        getAllPatients().then((res) => {
+            const map = {};
+            res.data.forEach((pat) => (map[pat.id] = pat.name)); // Map id to name
+            setPatientMap(map);
+        });
     }, []);
 
-    // Handle Create Appointment
-    const createAppointment = () => {
-        if (!newAppointment.doctor_id || !newAppointment.patient_id || !newAppointment.date || !newAppointment.start_time) {
-            setError("Doctor, patient, date, and start time are required.");
-            return;
+    // Function to fetch all appointments and handle errors
+    const fetchAllAppointments = () => {
+        getAllAppointments()
+            .then((res) => {
+                setAppointments(res.data); // Store data in state
+                toast.success("Appointments loaded"); // Show success toast
+            })
+            .catch((err) => {
+                console.error("Error fetching appointments:", err); // Log error for debugging
+                toast.error("Failed to load appointments"); // Show error toast
+            });
+    };
+
+    // ---------------------------- Handlers ----------------------------
+
+    // Open form modal for create or edit
+    const handleOpenForm = (appt = null) => {
+        setSelectedAppointment(appt); // Set selected appt for editing
+        setShowForm(true); // Show the form
+    };
+
+    // Delete appointment by ID and handle success/error
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure you want to delete this appointment?")) {
+            try {
+                await deleteAppointment(id); // Delete API call
+                toast.success("Appointment deleted successfully!"); // Show success toast
+                fetchAllAppointments(); // Refresh list
+            } catch (error) {
+                console.error("Error deleting appointment:", error); // Debug log
+                const message =
+                    error.response?.data?.detail || "Error deleting appointment."; // Extract detail if present
+                toast.error(message); // Show error toast
+            }
         }
-
-        setCreateLoading(true);
-        axios.post("http://localhost:8000/appointments", newAppointment, { withCredentials: true })
-            .then((res) => {
-                setAppointments((prevAppointments) => [...prevAppointments, res.data]);
-                setSuccessMessage("Appointment created successfully!");
-                setError(null);
-                resetNewAppointmentForm();
-                setCreateLoading(false);
-            })
-            .catch((err) => {
-                setSuccessMessage(null);
-                setError("Error creating appointment.");
-                setCreateLoading(false);
-            });
     };
 
-    // Handle Update Appointment
-    const updateAppointment = () => {
-        if (!selectedAppointment) return;
-
-        const updatedData = { ...selectedAppointment };
-
-        // Only update fields that have a new value
-        if (updateAppointmentData.doctor_id !== "") updatedData.doctor_id = updateAppointmentData.doctor_id;
-        if (updateAppointmentData.patient_id !== "") updatedData.patient_id = updateAppointmentData.patient_id;
-        if (updateAppointmentData.date !== "") updatedData.date = updateAppointmentData.date;
-        if (updateAppointmentData.start_time !== "") updatedData.start_time = updateAppointmentData.start_time;
-        if (updateAppointmentData.end_time !== "") updatedData.end_time = updateAppointmentData.end_time;
-        if (updateAppointmentData.status !== "") updatedData.status = updateAppointmentData.status;
-        if (updateAppointmentData.reason !== "") updatedData.reason = updateAppointmentData.reason;
-
-        setUpdateLoading(true);
-        axios.put(`http://localhost:8000/appointments/${selectedAppointment.id}`, updatedData, { withCredentials: true })
-            .then((res) => {
-                setAppointments((prevAppointments) =>
-                    prevAppointments.map((appointment) => (appointment.id === selectedAppointment.id ? res.data : appointment))
-                );
-                setSelectedAppointment(null);
-                setUpdateAppointmentData({
-                    doctor_id: "",
-                    patient_id: "",
-                    date: "",
-                    start_time: "",
-                    end_time: "",
-                    status: "",
-                    reason: "",
-                });
-                setSuccessMessage("Appointment updated successfully!");
-                setUpdateLoading(false);
-            })
-            .catch((err) => {
-                setSuccessMessage(null);
-                setError("Error updating appointment.");
-                setUpdateLoading(false);
-            });
+    // Callback when appointment form is submitted successfully
+    const handleFormSuccess = () => {
+        setShowForm(false); // Hide form
+        setSelectedAppointment(null); // Reset selected
+        toast.success("Appointment saved successfully!"); // Show success toast
+        fetchAllAppointments(); // Refresh list
     };
 
-    // Handle Delete Appointment
-    const deleteAppointment = (appointmentId) => {
-        setDeleteLoading(true);
-        axios.delete(`http://localhost:8000/appointments/${appointmentId}`, { withCredentials: true })
-            .then(() => {
-                setAppointments((prevAppointments) => prevAppointments.filter((appointment) => appointment.id !== appointmentId));
-                setSelectedAppointment(null);  // Reset selected appointment
-                setDeleteLoading(false);
-            })
-            .catch((err) => {
-                console.error("Error deleting appointment:", err);
-                setDeleteLoading(false);
-            });
-    };
-
-    // Reset the form for creating new appointment
-    const resetNewAppointmentForm = () => {
-        setNewAppointment({
-            doctor_id: "",
-            patient_id: "",
-            date: "",
-            start_time: "",
-            end_time: "",
-            status: "scheduled",
-            reason: "",
-        });
-    };
-
-    // Show loading or error state
-    if (loading) return <p>Loading appointments...</p>;
-    if (error) return <p>{error}</p>;
-
+    // ---------------------------- UI ----------------------------
     return (
-        <div className="p-4">
-            <h1 className="text-2xl font-bold mb-2">Manage Appointments</h1>
+        <div className="p-6">
+            {/* Toast message container (only needed once in app) */}
+            <ToastContainer position="top-right" autoClose={3000} />
 
-            {/* Toggle button for appointments list visibility */}
-            <button
-                onClick={() => setIsAppointmentsListVisible(!isAppointmentsListVisible)}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-                {isAppointmentsListVisible ? "Hide Appointments List" : "Show Appointments List"}
-            </button>
+            {/* Header section with button */}
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Appointments</h2>
+                <button
+                    onClick={() => handleOpenForm()}
+                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                >
+                    + New Appointment
+                </button>
+            </div>
 
-            {/* List of appointments (conditionally rendered based on visibility state) */}
-            {isAppointmentsListVisible && (
-                <div>
-                    <h2 className="text-xl font-semibold mt-4">Appointments List</h2>
-                    <ul>
-                        {appointments.map((appointment) => (
-                            <li key={appointment.id} className="mb-2">
-                                <p><strong>{appointment.patient_id}</strong> - {appointment.doctor_id}</p>
-                                <p>{appointment.date}</p>
-                                <button
-                                    onClick={() => setSelectedAppointment(appointment)}
-                                    className="mt-1 text-blue-500"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={() => deleteAppointment(appointment.id)}
-                                    className="mt-1 ml-4 text-red-500"
-                                >
-                                    Delete
-                                </button>
-                            </li>
+            {/* Table displaying all appointments */}
+            <div className="overflow-x-auto">
+                <table className="min-w-full bg-white shadow-md rounded-xl overflow-hidden">
+                    <thead>
+                        <tr className="bg-gray-100 text-left">
+                            <th className="py-2 px-4">Doctor</th>
+                            <th className="py-2 px-4">Patient</th>
+                            <th className="py-2 px-4">Date</th>
+                            <th className="py-2 px-4">Time</th>
+                            <th className="py-2 px-4">Status</th>
+                            <th className="py-2 px-4">Reason</th>
+                            <th className="py-2 px-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {/* Render each appointment row */}
+                        {appointments.map((appt) => (
+                            <tr key={appt.id} className="border-t hover:bg-gray-50">
+                                <td className="py-2 px-4">
+                                    {doctorMap[appt.doctor_id] || appt.doctor_id}
+                                </td>
+                                <td className="py-2 px-4">
+                                    {patientMap[appt.patient_id] || appt.patient_id}
+                                </td>
+                                <td className="py-2 px-4">{appt.date}</td>
+                                <td className="py-2 px-4">
+                                    {appt.start_time} - {appt.end_time || ""}
+                                </td>
+                                <td className="py-2 px-4">{appt.status}</td>
+                                <td className="py-2 px-4">{appt.reason}</td>
+                                <td className="py-2 px-4 space-x-2">
+                                    <button
+                                        onClick={() => handleOpenForm(appt)} // Edit
+                                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(appt.id)} // Delete
+                                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                                    >
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
                         ))}
-                    </ul>
-                </div>
-            )}
+                        {/* Empty state message */}
+                        {appointments.length === 0 && (
+                            <tr>
+                                <td colSpan="7" className="text-center py-6 text-gray-500">
+                                    No appointments found.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
-            {/* Success or Error message */}
-            {successMessage && <p className="text-green-500">{successMessage}</p>}
-            {error && <p className="text-red-500">{error}</p>}
-
-            {/* Create New Appointment Form */}
-            {!selectedAppointment && (
-                <div className="mt-6">
-                    <h3 className="text-lg">Create New Appointment</h3>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            createAppointment();
-                        }}
-                    >
-                        <input
-                            type="number"
-                            placeholder="Doctor ID (required)"
-                            value={newAppointment.doctor_id}
-                            onChange={(e) => setNewAppointment({ ...newAppointment, doctor_id: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="number"
-                            placeholder="Patient ID (required)"
-                            value={newAppointment.patient_id}
-                            onChange={(e) => setNewAppointment({ ...newAppointment, patient_id: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="date"
-                            placeholder="Date (required)"
-                            value={newAppointment.date}
-                            onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="time"
-                            placeholder="Start Time (required)"
-                            value={newAppointment.start_time}
-                            onChange={(e) => setNewAppointment({ ...newAppointment, start_time: e.target.value })}
-                            required
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="time"
-                            placeholder="End Time"
-                            value={newAppointment.end_time}
-                            onChange={(e) => setNewAppointment({ ...newAppointment, end_time: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Reason (optional)"
-                            value={newAppointment.reason}
-                            onChange={(e) => setNewAppointment({ ...newAppointment, reason: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <button
-                            type="submit"
-                            className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                            disabled={createLoading}
-                        >
-                            {createLoading ? "Creating..." : "Create Appointment"}
-                        </button>
-                    </form>
-                </div>
-            )}
-
-            {/* Update Appointment Form */}
-            {selectedAppointment && (
-                <div className="mt-6">
-                    <h3 className="text-lg">Update Appointment</h3>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            updateAppointment();
-                        }}
-                    >
-                        <input
-                            type="number"
-                            placeholder="Doctor ID"
-                            value={updateAppointmentData.doctor_id}
-                            onChange={(e) => setUpdateAppointmentData({ ...updateAppointmentData, doctor_id: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="number"
-                            placeholder="Patient ID"
-                            value={updateAppointmentData.patient_id}
-                            onChange={(e) => setUpdateAppointmentData({ ...updateAppointmentData, patient_id: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="date"
-                            placeholder="Date"
-                            value={updateAppointmentData.date}
-                            onChange={(e) => setUpdateAppointmentData({ ...updateAppointmentData, date: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="time"
-                            placeholder="Start Time"
-                            value={updateAppointmentData.start_time}
-                            onChange={(e) => setUpdateAppointmentData({ ...updateAppointmentData, start_time: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="time"
-                            placeholder="End Time"
-                            value={updateAppointmentData.end_time}
-                            onChange={(e) => setUpdateAppointmentData({ ...updateAppointmentData, end_time: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Reason"
-                            value={updateAppointmentData.reason}
-                            onChange={(e) => setUpdateAppointmentData({ ...updateAppointmentData, reason: e.target.value })}
-                            className="p-2 border mb-2 w-full"
-                        />
-                        <button
-                            type="submit"
-                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            disabled={updateLoading}
-                        >
-                            {updateLoading ? "Updating..." : "Update Appointment"}
-                        </button>
-                    </form>
+            {/* Form/modal section for creating or editing appointments */}
+            {showForm && (
+                <div className="mt-6 bg-gray-100 p-4 rounded-xl border">
+                    <AppointmentForm
+                        selectedAppointment={selectedAppointment} // Pass selected appt
+                        onSuccess={handleFormSuccess} // Callback on success
+                    />
                 </div>
             )}
         </div>
     );
-}
+};
+
+// Export the page component
+export default AppointmentsPage;

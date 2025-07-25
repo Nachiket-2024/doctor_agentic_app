@@ -17,6 +17,7 @@ from .auth.auth_routes import router as auth_router
 from .api.doctor_routes import router as doctor_router
 from .api.patient_routes import router as patient_router
 from .api.appointment_routes import router as appointment_router
+from .api.doctor_slot_routes import router as doctor_slot_router
 
 # --- Create the FastAPI app instance ---
 app = FastAPI()
@@ -33,6 +34,7 @@ app.add_middleware(
 # --- Register modular routers with the app ---
 app.include_router(auth_router)         # Handles all /auth routes
 app.include_router(doctor_router)       # Handles all /doctors routes
+app.include_router(doctor_slot_router)  # Handles all /doctor_slot routes
 app.include_router(appointment_router)  # Handles all /appointments routes
 app.include_router(patient_router)      # Handles all /patients routes
 
