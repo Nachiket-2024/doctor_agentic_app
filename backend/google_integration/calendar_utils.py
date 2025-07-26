@@ -12,27 +12,39 @@ from google.oauth2.credentials import Credentials
 # For building Google API service clients
 from googleapiclient.discovery import build
 
+# For database session type hinting
+from sqlalchemy.orm import Session
+
+# ---------------------------- Internal Imports ----------------------------
+
+# Function to get a valid (possibly refreshed) Google access token for a user
+from ..auth.google_token_service import get_valid_google_access_token
 
 # ---------------------------- Load environment variables ----------------------------
 
 # Load all environment variables from the .env file
 load_dotenv()
 
+# ---------------------------- Google OAuth Environment Configuration ----------------------------
 
-# ---------------------------- Google OAuth environment config ----------------------------
+# Google OAuth Client ID from .env
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")  # Google OAuth Client ID
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")  # Google OAuth Client Secret
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")  # Redirect URI registered in Google Cloud
-GOOGLE_SCOPES = os.getenv("GOOGLE_SCOPES", "").split(", ")  # Scopes needed for API access
+# Google OAuth Client Secret from .env
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
+# Redirect URI registered in Google Cloud
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+# Scopes required by your app (calendar, gmail, etc.)
+GOOGLE_SCOPES = os.getenv("GOOGLE_SCOPES", "").split(", ")
 
 # ---------------------------- Google Credentials Generator ----------------------------
 
 def get_google_credentials(access_token: str, refresh_token: str):
     """
-    Builds a full credentials object using access and refresh tokens along with client secrets.
-    This allows both Gmail and Calendar APIs to refresh tokens as needed.
+    Builds a Google credentials object using access and refresh tokens.
+    This allows for automatic token refresh when using Google API clients.
     """
     creds = Credentials(
         token=access_token,
@@ -44,54 +56,34 @@ def get_google_credentials(access_token: str, refresh_token: str):
     )
     return creds
 
-
-# ---------------------------- Google Calendar service generator ----------------------------
+# ---------------------------- Google Calendar Service Generator ----------------------------
 
 def get_calendar_service(access_token: str, refresh_token: str):
     """
-    Returns an authenticated Google Calendar service object using proper credentials.
+    Creates and returns an authenticated Google Calendar API service object.
     """
-    creds = get_google_credentials(access_token, refresh_token)  # Get valid credentials
-    service = build("calendar", "v3", credentials=creds)  # Build Calendar API service
+    # Generate credentials object
+    creds = get_google_credentials(access_token, refresh_token)
+
+    # Build the service client for Calendar API
+    service = build("calendar", "v3", credentials=creds)
+
     return service
 
+# ---------------------------- Create Calendar Event ----------------------------
 
-# ---------------------------- Create calendar event ----------------------------
-
-def create_event(access_token: str, refresh_token: str, summary: str, start_time: str, end_time: str, email: str):
+async def create_event(user_id: int, db: Session, summary: str, start_time: str, end_time: str, email: str):
     """
-    Creates a Google Calendar event with the given info using user's credentials.
+    Creates a calendar event in the user's Google Calendar.
+    Uses the user's stored access/refresh tokens, refreshed if needed.
     """
-    service = get_calendar_service(access_token, refresh_token)  # Get Calendar API client
+    # Get valid access and refresh tokens for the user
+    access_token, refresh_token = await get_valid_google_access_token(user_id, db)
 
-    # Define event structure
-    event = {
-        "summary": summary,  # Event title
-        "start": {
-            "dateTime": start_time,  # ISO 8601 format
-            "timeZone": "Asia/Kolkata"
-        },
-        "end": {
-            "dateTime": end_time,
-            "timeZone": "Asia/Kolkata"
-        },
-        "attendees": [{"email": email}]  # Notify this email
-    }
+    # Initialize Google Calendar service
+    service = get_calendar_service(access_token, refresh_token)
 
-    # Create the event in primary calendar
-    created_event = service.events().insert(calendarId="primary", body=event).execute()
-    return created_event  # Return event metadata
-
-
-# ---------------------------- Update calendar event ----------------------------
-
-def update_event(access_token: str, refresh_token: str, event_id: str, summary: str, start_time: str, end_time: str, email: str):
-    """
-    Updates an existing event in Google Calendar using event ID and new details.
-    """
-    service = get_calendar_service(access_token, refresh_token)  # Get Calendar API client
-
-    # Event structure with updated info
+    # Define the event structure to be created
     event = {
         "summary": summary,
         "start": {
@@ -105,24 +97,64 @@ def update_event(access_token: str, refresh_token: str, event_id: str, summary: 
         "attendees": [{"email": email}]
     }
 
-    # Update the specified event
+    # Insert the event into the user's primary calendar
+    created_event = service.events().insert(calendarId="primary", body=event).execute()
+
+    # Return event details
+    return created_event
+
+# ---------------------------- Update Calendar Event ----------------------------
+
+async def update_event(user_id: int, db: Session, event_id: str, summary: str, start_time: str, end_time: str, email: str):
+    """
+    Updates an existing calendar event using the event ID.
+    Retrieves and refreshes tokens as needed for authentication.
+    """
+    # Get valid access and refresh tokens for the user
+    access_token, refresh_token = await get_valid_google_access_token(user_id, db)
+
+    # Initialize Calendar API client
+    service = get_calendar_service(access_token, refresh_token)
+
+    # Define the updated event data
+    event = {
+        "summary": summary,
+        "start": {
+            "dateTime": start_time,
+            "timeZone": "Asia/Kolkata"
+        },
+        "end": {
+            "dateTime": end_time,
+            "timeZone": "Asia/Kolkata"
+        },
+        "attendees": [{"email": email}]
+    }
+
+    # Update the specified event using its ID
     updated_event = service.events().update(
         calendarId="primary",
         eventId=event_id,
         body=event
     ).execute()
 
-    return updated_event  # Return updated event metadata
+    # Return updated event metadata
+    return updated_event
 
+# ---------------------------- Delete Calendar Event ----------------------------
 
-# ---------------------------- Delete calendar event ----------------------------
-
-def delete_event(access_token: str, refresh_token: str, event_id: str):
+async def delete_event(user_id: int, db: Session, event_id: str):
     """
-    Deletes a Google Calendar event using the event ID.
+    Deletes a calendar event from the user's Google Calendar using the event ID.
+    Automatically handles token refresh as needed.
     """
-    service = get_calendar_service(access_token, refresh_token)  # Get Calendar API client
+    # Get valid access and refresh tokens for the user
+    access_token, refresh_token = await get_valid_google_access_token(user_id, db)
 
-    # Delete the event
+    # Create Calendar API client
+    service = get_calendar_service(access_token, refresh_token)
+
+    # Delete the specified event
     service.events().delete(calendarId="primary", eventId=event_id).execute()
-    return {"message": "Event deleted successfully"}  # Confirm deletion
+
+    # Return confirmation message
+    return {"message": "Event deleted successfully"}

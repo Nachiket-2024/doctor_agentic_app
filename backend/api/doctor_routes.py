@@ -52,6 +52,7 @@ async def get_doctor(
     try:
         # Verify and decode JWT token to confirm authentication
         payload = verify_jwt_token(token)
+        email = payload.get("sub")        # Still extract email if needed
 
         # Query for doctor with matching ID and role 'doctor'
         doctor = db.query(User).filter(User.id == doctor_id, User.role == "doctor").first()
@@ -201,8 +202,8 @@ async def get_all_doctors(
     try:
         # Verify and decode JWT token to get user details
         payload = verify_jwt_token(token)
-        user_email = payload.get("sub")  # Usually user's email
-        role = payload.get("role")       # User role from token
+        user_email = payload.get("sub")   # Extract email as well for compatibility
+        role = payload.get("role")        # User role from token
 
         # Admin can see all doctors
         if role == "admin":

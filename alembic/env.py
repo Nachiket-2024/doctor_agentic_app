@@ -10,7 +10,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from backend.db.base import Base  # Your declarative base
-from backend.models import admin_model, user_model, appointment_model  # Ensure models are imported
+from backend.models import admin_model, user_model, appointment_model, google_integration_model  # Ensure models are imported
 
 from dotenv import load_dotenv
 

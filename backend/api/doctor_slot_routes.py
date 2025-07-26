@@ -1,30 +1,38 @@
 # ---------------------------- External Imports ----------------------------
 
 # FastAPI tools for routing, dependency injection, and HTTP exceptions
-from fastapi import APIRouter, Depends, HTTPException, Query  
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 # SQLAlchemy Session to interact with the database
-from sqlalchemy.orm import Session 
+from sqlalchemy.orm import Session
 
 # For parsing and handling dates
-from datetime import datetime  
+from datetime import datetime
 
 # To convert weekday indices to names (e.g., 0 -> Monday)
-import calendar                                               
+import calendar
+
+# OAuth2PasswordBearer to extract JWT token from requests
+from fastapi.security import OAuth2PasswordBearer
 
 # ---------------------------- Internal Imports ----------------------------
 
 # Dependency to get a database session
-from ..db.session import get_db        
+from ..db.session import get_db
 
 # User model, representing doctors and other users
-from ..models.user_model import User      
+from ..models.user_model import User
 
 # Appointment model representing bookings
-from ..models.appointment_model import Appointment 
-           
+from ..models.appointment_model import Appointment
+
 # Utility to generate available time slots given constraints
-from ..utils.slot_utils import generate_available_slots       
+from ..utils.slot_utils import generate_available_slots
+
+# ---------------------------- OAuth2 Setup ----------------------------
+
+# Setup OAuth2 scheme to extract token from Authorization header
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # ---------------------------- APIRouter Setup ----------------------------
 
@@ -40,7 +48,8 @@ router = APIRouter(
 async def get_available_slots(
     doctor_id: int,                                     # Doctor's unique ID as path parameter
     date_str: str = Query(..., description="Date in YYYY-MM-DD"),  # Date query parameter in ISO format
-    db: Session = Depends(get_db)                        # Inject database session dependency
+    token: str = Depends(oauth2_scheme),                # Extract JWT token from Authorization header
+    db: Session = Depends(get_db)                       # Inject database session dependency
 ):
     """
     Return available time slots for a doctor on a specified date.
@@ -81,8 +90,8 @@ async def get_available_slots(
         if not time_ranges:
             return []
 
-        # Use the slot duration set by doctor, fallback to 30 minutes if not set
-        slot_duration = doctor.slot_duration or 30
+        # Use the slot duration set by doctor
+        slot_duration = doctor.slot_duration
 
         # Query all appointments booked for the doctor on the target date
         appointments = db.query(Appointment).filter(

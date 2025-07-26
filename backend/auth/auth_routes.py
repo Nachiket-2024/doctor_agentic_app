@@ -35,6 +35,9 @@ from ..models.admin_model import Admin
 # Dependency for getting DB session
 from ..db.session import get_db  
 
+# For checking and generating access token
+from .google_token_service import get_valid_google_access_token
+
 # ---------------------------- Setup ----------------------------
 
 # Load variables from .env file like client ID, secret, and redirect URIs
@@ -112,7 +115,7 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
         jwt_token = create_jwt_token(user_info)
 
         # Step 6: Get frontend URL to redirect the user after successful login
-        frontend_url = os.getenv("FRONTEND_REDIRECT_URI", "http://localhost:5173/dashboard")
+        frontend_url = os.getenv("FRONTEND_REDIRECT_URI")
 
         # Step 7: Append token and role to the frontend URL
         redirect_url = f"{frontend_url}?access_token={jwt_token}&role={role}"
@@ -131,39 +134,55 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
 async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
     Returns the authenticated user's information based on the JWT token.
-    Looks up both User and Admin tables.
+    Also attempts to refresh the user's Google access token if expired.
     """
     try:
-        # Step 1: Decode the JWT token and extract email
+        # Step 1: Decode the JWT token
         payload = verify_jwt_token(token)
-        email = payload["sub"]
 
-        # Step 2: Try to find the user in the User table
-        user = db.query(User).filter(User.email == email).first()
+        # Step 2: Try using the user_id directly from the token (new logic)
+        user_id = payload.get("id")  # Newly included in JWT
+        email = payload.get("sub")   # fallback for older tokens
+
+        user = None
+        if user_id:
+            # Step 2.1: Look up the user using ID if available
+            user = db.query(User).filter(User.id == user_id).first()
+
+        if not user and email:
+            # Step 2.2: Fallback to email lookup (older tokens)
+            user = db.query(User).filter(User.email == email).first()
+
         if user:
+            # Step 3: Try to refresh token if possible
+            try:
+                await get_valid_google_access_token(user.id, db)
+            except Exception as e:
+                print(f"Google token refresh failed: {e}")
+
+            # Step 4: Return user info
             return {
                 "email": user.email,
                 "name": user.name,
                 "role": user.role
             }
 
-        # Step 3: If not a regular user, try to find in Admin table
-        admin = db.query(Admin).filter(Admin.email == email).first()
-        if admin:
-            return {
-                "email": admin.email,
-                "name": admin.name,
-                "role": "admin"
-            }
+        # Step 5: If not a User, try Admin by email
+        if email:
+            admin = db.query(Admin).filter(Admin.email == email).first()
+            if admin:
+                return {
+                    "email": admin.email,
+                    "name": admin.name,
+                    "role": "admin"
+                }
 
-        # Step 4: If not found in either table, raise 404
+        # Step 6: User not found
         raise HTTPException(status_code=404, detail="User not found")
 
     except JWTError:
-        # Token is invalid or expired
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     except Exception as e:
-        # General exception fallback
         raise HTTPException(status_code=500, detail=str(e))
 
 

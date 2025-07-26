@@ -1,62 +1,68 @@
 # ------------------------------------- External Imports -------------------------------------
 
-# For encoding the MIME message  
+# For encoding the MIME message
 import base64
 
-# For creating email content  
+# For creating plain text email content
 from email.mime.text import MIMEText
 
-# For Gmail API service  
+# For Gmail API service
 from googleapiclient.discovery import build
 
-# For querying the database  
+# For database access
 from sqlalchemy.orm import Session
 
-# For raising error responses  
+# For raising HTTP errors
 from fastapi import HTTPException
 
 # ------------------------------------- Internal Imports -------------------------------------
 
-# Import User model from internal user_model module  
+# User model to fetch doctor and patient details
 from ..models.user_model import User
 
-# Import Appointment model from internal appointment_model module  
+# Appointment model to fetch appointment details
 from ..models.appointment_model import Appointment
 
-# Import function to get Google credentials  
+# Utility function to build Google credentials from tokens
 from .calendar_utils import get_google_credentials
+
+# Utility function to securely fetch valid tokens for a user
+from ..auth.google_token_service import get_valid_google_access_token
 
 
 # ---------------------------- Send Gmail Message ----------------------------
-def send_email_via_gmail(
-    access_token: str,
-    refresh_token: str,
+
+async def send_email_via_gmail(
+    user_id: int,
     to_email: str,
     subject: str,
     appointment_id: int,
     db: Session
 ):
     """
-    Sends an appointment confirmation email using Gmail API on behalf of the user.
-    Requires both access_token and refresh_token for token refresh support.
+    Sends an appointment confirmation email using the user's Gmail account.
+    Automatically refreshes access token if expired before sending.
     """
 
-    # ------------------ Step 1: Fetch appointment ------------------
+    # -------- Step 1: Fetch appointment details --------
     appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
-    # ------------------ Step 2: Fetch doctor and patient ------------------
+    # -------- Step 2: Fetch doctor and patient --------
     doctor = db.query(User).filter(User.id == appointment.doctor_id).first()
     patient = db.query(User).filter(User.id == appointment.patient_id).first()
     if not doctor or not patient:
         raise HTTPException(status_code=404, detail="Doctor or Patient not found")
 
-    # ------------------ Step 3: Build Gmail service ------------------
-    credentials = get_google_credentials(access_token, refresh_token)  # Create Credentials object
-    gmail_service = build("gmail", "v1", credentials=credentials)  # Build Gmail API client
+    # -------- Step 3: Get valid tokens --------
+    access_token, refresh_token = await get_valid_google_access_token(user_id, db)
 
-    # ------------------ Step 4: Create email body ------------------
+    # -------- Step 4: Build Gmail service --------
+    credentials = get_google_credentials(access_token, refresh_token)
+    gmail_service = build("gmail", "v1", credentials=credentials)
+
+    # -------- Step 5: Construct email content --------
     appointment_details = {
         'patient_name': patient.name,
         'doctor_name': doctor.name,
@@ -64,10 +70,11 @@ def send_email_via_gmail(
         'appointment_time': f"{appointment.start_time} - {appointment.end_time}",
     }
 
+    # Email message body
     body = f"""
     Dear {appointment_details['patient_name']},
 
-    Your appointment with Dr. {appointment_details['doctor_name']} has been successfully scheduled for:
+    Your appointment with {appointment_details['doctor_name']} has been successfully scheduled for:
 
     Date: {appointment_details['appointment_date']}
     Time: {appointment_details['appointment_time']}
@@ -78,17 +85,18 @@ def send_email_via_gmail(
     Your Doctor Agentic App Team
     """
 
-    # ------------------ Step 5: Build and encode email ------------------
-    message = MIMEText(body)  # Plain text email content
+    # -------- Step 6: Encode and prepare email --------
+    message = MIMEText(body)
     message['to'] = to_email
     message['subject'] = subject
 
-    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()  # Gmail API requires base64url
+    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
-    # ------------------ Step 6: Send email ------------------
+    # -------- Step 7: Send email via Gmail API --------
     gmail_service.users().messages().send(
-        userId="me",  # "me" refers to the authenticated user
+        userId="me",
         body={'raw': raw_message}
     ).execute()
 
+    # Return success message
     return {"message": "Email sent successfully"}

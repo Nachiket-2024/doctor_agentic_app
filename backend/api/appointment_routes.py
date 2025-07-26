@@ -2,51 +2,62 @@
 
 # FastAPI dependencies for routing, authentication, error handling, and status codes
 from fastapi import APIRouter, Depends, HTTPException, status
+
+# OAuth2 token extractor from request headers
 from fastapi.security import OAuth2PasswordBearer
 
 # SQLAlchemy ORM Session for DB interactions
 from sqlalchemy.orm import Session
 
-# Python standard library for calendar weekday name conversions
+# Built-in Python library to map dates to day names
 import calendar
+
+# Built-in traceback module for debugging exceptions
+import traceback
+
+# Time utility from datetime to create time objects
+from datetime import time
 
 # ---------------------------- Internal Imports ----------------------------
 
-# Appointment model (SQLAlchemy ORM)
+# SQLAlchemy model for appointments
 from ..models.appointment_model import Appointment
 
-# User model for doctor and patient references
+# SQLAlchemy model for users (doctors and patients)
 from ..models.user_model import User
 
-# Pydantic schemas for appointment input and output validation
+# Pydantic schemas for input and output validation of appointments
 from ..schemas.appointment_schema import AppointmentCreate, AppointmentUpdate, AppointmentResponse
 
-# DB session dependency provider
+# Dependency to get DB session from context
 from ..db.session import get_db
 
-# JWT token verification utility
+# JWT utility to decode and verify access tokens
 from ..auth.auth_utils import verify_jwt_token
 
-# Admin-only access control utility
+# Authorization check utility for admin-only endpoints
 from ..auth.auth_user_check import admin_only
 
-# Gmail API utility to send confirmation/cancellation emails
+# Gmail integration for sending emails
 from ..google_integration.gmail_utils import send_email_via_gmail
 
-# Google Calendar API helpers for event CRUD
+# Google Calendar integration for event CRUD operations
 from ..google_integration.calendar_utils import create_event, update_event, delete_event
 
-# Utility to generate available appointment slots given constraints
+# Utility to generate available time slots based on availability
 from ..utils.slot_utils import generate_available_slots
+
+# Asynchronous token refresh utility for Google APIs
+from ..auth.google_token_service import get_valid_google_access_token
 
 # ---------------------------- OAuth2 Setup ----------------------------
 
-# OAuth2PasswordBearer dependency to extract tokens from Authorization headers
+# Token URL to be used by OAuth2PasswordBearer
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # ---------------------------- Router Initialization ----------------------------
 
-# Create FastAPI router with prefix and tags for grouping endpoints
+# Initialize router instance with tag and path prefix
 router = APIRouter(
     prefix="/appointments",
     tags=["Appointments"],
@@ -54,92 +65,84 @@ router = APIRouter(
 
 # ---------------------------- Route: Get Appointment by ID ----------------------------
 
+# Get a specific appointment based on its ID
 @router.get("/{appointment_id}", response_model=AppointmentResponse)
 async def get_appointment(
-    appointment_id: int,                      # Appointment ID path parameter
-    token: str = Depends(oauth2_scheme),     # JWT token extracted via OAuth2 scheme
-    db: Session = Depends(get_db)             # Database session dependency
+    appointment_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    """
-    Retrieve an appointment by ID.
-    Access allowed only to admin, the appointment's doctor, or the patient.
-    """
     try:
-        # Verify JWT token and extract user info
+        # Decode JWT to get user identity and role
         payload = verify_jwt_token(token)
         user_role = payload.get("role")
-        user_id = payload.get("user_id")
+        user_id = payload.get("id")
 
-        # Fetch appointment by ID
+        # Retrieve appointment from DB
         appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
         if not appointment:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
-        # Authorization check: only admin, appointment's doctor or patient can access
+        # Authorize access based on user role
         if user_role == "admin" or \
            (user_role == "doctor" and appointment.doctor_id == user_id) or \
            (user_role == "patient" and appointment.patient_id == user_id):
             return appointment
 
-        # Unauthorized access
         raise HTTPException(status_code=403, detail="You are not authorized to view this appointment")
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # ---------------------------- Route: Create Appointment ----------------------------
 
+# Endpoint to create a new appointment
 @router.post("/", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
 async def create_appointment(
-    appointment: AppointmentCreate,          # Appointment data validated by schema
-    token: str = Depends(oauth2_scheme),     # JWT token dependency
-    db: Session = Depends(get_db)             # Database session dependency
+    appointment: AppointmentCreate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    """
-    Create a new appointment.
-    Only admin or patient roles allowed.
-    Checks doctor availability and books Google Calendar event.
-    """
     try:
-        # Verify token and extract role and refresh token
+        # Decode JWT to get user role and ID
         payload = verify_jwt_token(token)
         user_role = payload.get("role")
-        refresh_token = payload.get("refresh_token")
+        user_id = payload.get("id")
 
-        # Access control: only admin or patient can create
+        # Only patients or admins can create appointments
         if user_role not in ["admin", "patient"]:
             raise HTTPException(status_code=403, detail="Only admin or patient can create an appointment")
 
-        # Validate doctor existence and role
+        # Fetch doctor info from DB
         doctor = db.query(User).filter(User.id == appointment.doctor_id, User.role == "doctor").first()
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
 
-        # Determine weekday key (e.g., 'mon', 'tue') for availability lookup
+        # Check if doctor is available on the selected day
         weekday_key = calendar.day_name[appointment.date.weekday()].lower()[:3]
         available_days = doctor.available_days or {}
-
-        # Check if doctor is available on appointment day
         if weekday_key not in available_days:
             raise HTTPException(status_code=400, detail="Doctor not available on selected day")
 
-        # Get time range and existing bookings to find free slots
+        # Generate time slots and validate chosen time
         time_range = available_days[weekday_key]
         booked = db.query(Appointment).filter(
             Appointment.doctor_id == appointment.doctor_id,
             Appointment.date == appointment.date
         ).all()
         booked_times = [appt.start_time for appt in booked]
-
-        # Generate available slots considering booked times
-        available_slots = generate_available_slots(time_range, doctor.slot_duration or 30, booked_times)
-
-        # Check if requested start_time is free
+        available_slots = generate_available_slots(time_range, doctor.slot_duration, booked_times)
         if appointment.start_time not in available_slots:
             raise HTTPException(status_code=400, detail="Selected time slot is already booked or unavailable")
 
-        # Create appointment record
+        # Auto-compute end_time if not given
+        if not appointment.end_time:
+            start_time_minutes = appointment.start_time.hour * 60 + appointment.start_time.minute
+            end_time_minutes = start_time_minutes + doctor.slot_duration
+            hours = end_time_minutes // 60
+            minutes = end_time_minutes % 60
+            appointment.end_time = time(hours, minutes)
+
+        # Create and persist appointment object
         new_appointment = Appointment(
             doctor_id=appointment.doctor_id,
             patient_id=appointment.patient_id,
@@ -153,23 +156,26 @@ async def create_appointment(
         db.commit()
         db.refresh(new_appointment)
 
-        # Fetch patient info for email/calendar notifications
+        # Retrieve patient info for email/calendar purposes
         patient = db.query(User).filter(User.id == new_appointment.patient_id).first()
 
-        # Send confirmation email via Gmail
-        send_email_via_gmail(token, refresh_token, patient.email, "Appointment Confirmation", new_appointment.id, db)
+        # Get valid Google access and refresh tokens for calendar API
+        access_token, refresh_token = await get_valid_google_access_token(user_id, db)
+
+        # Send email to patient confirming appointment
+        await send_email_via_gmail(user_id, patient.email, "Appointment Confirmation", new_appointment.id, db)
 
         # Create Google Calendar event for the appointment
-        created_event = create_event(
-            token,
-            refresh_token,
-            f"Appointment with Dr. {doctor.name}",
-            f"{new_appointment.date}T{new_appointment.start_time}:00",
-            f"{new_appointment.date}T{new_appointment.end_time}:00",
+        created_event = await create_event(
+            user_id,
+            db,
+            f"Appointment with {doctor.name}",
+            f"{new_appointment.date}T{new_appointment.start_time.isoformat()}",
+            f"{new_appointment.date}T{new_appointment.end_time.isoformat()}",
             patient.email
         )
 
-        # Store Google Calendar event ID in appointment record
+        # Save the calendar event ID in DB
         new_appointment.event_id = created_event.get("id")
         db.commit()
         db.refresh(new_appointment)
@@ -177,47 +183,43 @@ async def create_appointment(
         return new_appointment
 
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # ---------------------------- Route: Update Appointment ----------------------------
 
+# Update an existing appointment and modify Google Calendar if needed
 @router.put("/{appointment_id}", response_model=AppointmentResponse)
 async def update_appointment(
-    appointment_id: int,                    # Appointment ID to update
-    appointment_update: AppointmentUpdate, # Partial update data validated by schema
-    token: str = Depends(oauth2_scheme),    # JWT token dependency
-    db: Session = Depends(get_db)            # Database session dependency
+    appointment_id: int,
+    appointment_update: AppointmentUpdate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    """
-    Update an existing appointment.
-    Only admin users can perform update.
-    Updates Google Calendar event and sends notification email.
-    """
     try:
-        # Verify token and confirm admin role
+        # Verify JWT and admin access
         payload = verify_jwt_token(token)
         admin_only(token, db)
-        refresh_token = payload.get("refresh_token")
+        user_id = payload.get("id")
 
-        # Retrieve existing appointment record
+        # Fetch existing appointment
         appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
         if not appointment:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
-        # Determine new doctor and appointment date/time
+        # Determine new doctor/date/time based on input or defaults
         doctor_id = appointment_update.doctor_id or appointment.doctor_id
         date = appointment_update.date or appointment.date
         start_time = appointment_update.start_time or appointment.start_time
 
-        # Validate doctor availability on updated day
+        # Validate doctor's availability on new date
         doctor = db.query(User).filter(User.id == doctor_id).first()
         weekday_key = calendar.day_name[date.weekday()].lower()[:3]
         available_days = doctor.available_days or {}
         if weekday_key not in available_days:
             raise HTTPException(status_code=400, detail="Doctor not available on selected day")
 
-        # Check for booked time conflicts excluding current appointment
+        # Generate updated available slots and check conflict
         time_range = available_days[weekday_key]
         booked = db.query(Appointment).filter(
             Appointment.doctor_id == doctor_id,
@@ -225,114 +227,111 @@ async def update_appointment(
             Appointment.id != appointment_id
         ).all()
         booked_times = [appt.start_time for appt in booked]
-
-        # Generate free slots and validate start_time availability
-        available_slots = generate_available_slots(time_range, doctor.slot_duration or 30, booked_times)
+        available_slots = generate_available_slots(time_range, doctor.slot_duration, booked_times)
         if start_time not in available_slots:
             raise HTTPException(status_code=400, detail="Selected time slot is already booked or unavailable")
 
-        # Apply updates to appointment record
+        # Update appointment fields
         appointment.doctor_id = doctor_id
         appointment.patient_id = appointment_update.patient_id or appointment.patient_id
         appointment.date = date
         appointment.start_time = start_time
-        appointment.end_time = appointment_update.end_time or appointment.end_time
         appointment.status = appointment_update.status or appointment.status
         appointment.reason = appointment_update.reason or appointment.reason
 
-        # Commit updates and refresh record
+        # Recalculate end time if not explicitly provided
+        if not appointment_update.end_time:
+            start_time_minutes = start_time.hour * 60 + start_time.minute
+            end_time_minutes = start_time_minutes + doctor.slot_duration
+            hours = end_time_minutes // 60
+            minutes = end_time_minutes % 60
+            appointment.end_time = time(hours, minutes)
+        else:
+            appointment.end_time = appointment_update.end_time
+
+        # Persist changes to DB
         db.commit()
         db.refresh(appointment)
 
-        # Fetch patient info for notifications
+        # Fetch patient info
         patient = db.query(User).filter(User.id == appointment.patient_id).first()
+        access_token, refresh_token = await get_valid_google_access_token(user_id, db)
 
-        # Update Google Calendar event if exists
+        # Update calendar event if exists
         if appointment.event_id:
-            update_event(
-                token,
-                refresh_token,
+            await update_event(
+                user_id,
+                db,
                 appointment.event_id,
                 f"Updated Appointment with Dr. {doctor.name}",
-                f"{appointment.date}T{appointment.start_time}:00",
-                f"{appointment.date}T{appointment.end_time}:00",
+                f"{appointment.date}T{appointment.start_time.isoformat()}",
+                f"{appointment.date}T{appointment.end_time.isoformat()}",
                 patient.email
             )
 
-        # Send update notification email
-        send_email_via_gmail(token, refresh_token, patient.email, "Updated Appointment", appointment.id, db)
+        # Notify patient via email
+        await send_email_via_gmail(user_id, patient.email, "Updated Appointment", appointment.id, db)
 
         return appointment
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # ---------------------------- Route: Delete Appointment ----------------------------
 
+# Delete an appointment and remove its calendar entry if present
 @router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_appointment(
-    appointment_id: int,                 # Appointment ID to delete
-    token: str = Depends(oauth2_scheme), # JWT token dependency
-    db: Session = Depends(get_db)         # Database session dependency
+    appointment_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    """
-    Delete an appointment by ID.
-    Only admin users can delete.
-    Deletes associated Google Calendar event and sends cancellation email.
-    """
     try:
-        # Verify token and confirm admin role
+        # Authenticate and check admin access
         payload = verify_jwt_token(token)
         admin_only(token, db)
-        refresh_token = payload.get("refresh_token")
+        user_id = payload.get("id")
 
-        # Fetch appointment to delete
+        # Locate appointment in DB
         appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
         if not appointment:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
-        # Fetch patient info for notification
+        # Fetch patient email for notification
         patient = db.query(User).filter(User.id == appointment.patient_id).first()
+        access_token, refresh_token = await get_valid_google_access_token(user_id, db)
 
-        # Delete Google Calendar event if exists
+        # Delete from Google Calendar if synced
         if appointment.event_id:
-            delete_event(token, refresh_token, appointment.event_id)
+            await delete_event(user_id, db, appointment.event_id)
 
-        # Send cancellation email notification
-        send_email_via_gmail(token, refresh_token, patient.email, "Appointment Cancellation", appointment.id, db)
+        # Notify patient about cancellation
+        await send_email_via_gmail(user_id, patient.email, "Appointment Cancellation", appointment.id, db)
 
-        # Delete appointment record from DB and commit
+        # Remove appointment from DB
         db.delete(appointment)
         db.commit()
 
-        # Return None, FastAPI returns 204 No Content automatically
         return
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
 
 # ---------------------------- Route: Get All Appointments ----------------------------
 
+# Retrieve appointments depending on user role (admin/doctor/patient)
 @router.get("/", response_model=list[AppointmentResponse])
 async def get_all_appointments(
-    token: str = Depends(oauth2_scheme),   # JWT token dependency
-    db: Session = Depends(get_db)           # Database session dependency
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    """
-    Retrieve all appointments visible to the requester based on role:
-    - Admin: all appointments
-    - Doctor: only their appointments
-    - Patient: only their appointments
-    """
     try:
-        # Decode token to extract user info
+        # Decode and extract user role and ID
         payload = verify_jwt_token(token)
         user_role = payload.get("role")
-        user_id = payload.get("user_id")
+        user_id = payload.get("id")
 
-        # Return appointments based on user role
+        # Return appointments based on access rights
         if user_role == "admin":
             return db.query(Appointment).all()
         elif user_role == "doctor":
@@ -341,6 +340,5 @@ async def get_all_appointments(
             return db.query(Appointment).filter(Appointment.patient_id == user_id).all()
         else:
             raise HTTPException(status_code=403, detail="Not authorized to view appointments.")
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
