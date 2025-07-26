@@ -23,9 +23,10 @@ from datetime import time
 # SQLAlchemy model for appointments
 from ..models.appointment_model import Appointment
 
-# SQLAlchemy models for Doctor and Patient (new tables)
+# SQLAlchemy models for Doctor ,Patient ,Admin Tables
 from ..models.doctor_model import Doctor
 from ..models.patient_model import Patient
+from ..models.admin_model import Admin
 
 # Pydantic schemas for input and output validation of appointments
 from ..schemas.appointment_schema import AppointmentCreate, AppointmentUpdate, AppointmentResponse
@@ -91,6 +92,10 @@ async def get_appointment(
             return appointment
 
         raise HTTPException(status_code=403, detail="You are not authorized to view this appointment")
+    
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -160,11 +165,11 @@ async def create_appointment(
         # Retrieve patient info from Patient table
         patient = db.query(Patient).filter(Patient.id == new_appointment.patient_id).first()
 
-        # Get valid Google access and refresh tokens for calendar API
-        access_token, refresh_token = await get_valid_google_access_token(user_id, db)
+        # Fetch default admin user
+        admin = db.query(Admin).filter(Admin.id == 1).first()
 
         # Send email to patient confirming appointment (added from_email param)
-        await send_email_via_gmail(user_id, patient.email, "Appointment Confirmation", new_appointment.id, db, from_email=user_email)
+        await send_email_via_gmail(admin.id, patient.email, "Appointment Confirmation", new_appointment.id, db)
 
         # Create Google Calendar event for the appointment
         created_event = await create_event(
@@ -182,6 +187,9 @@ async def create_appointment(
         db.refresh(new_appointment)
 
         return new_appointment
+    
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
         traceback.print_exc()
@@ -260,7 +268,9 @@ async def update_appointment(
 
         # Fetch patient info
         patient = db.query(Patient).filter(Patient.id == appointment.patient_id).first()
-        access_token, refresh_token = await get_valid_google_access_token(user_id, db)
+
+        # Fetch default admin user
+        admin = db.query(Admin).filter(Admin.id == 1).first()
 
         # Update calendar event if exists
         if appointment.event_id:
@@ -275,9 +285,12 @@ async def update_appointment(
             )
 
         # Notify patient via email (added from_email param)
-        await send_email_via_gmail(user_id, patient.email, "Updated Appointment", appointment.id, db, from_email=user_email)
+        await send_email_via_gmail(admin.id, patient.email, "Updated Appointment", appointment.id, db)
 
         return appointment
+    
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -308,20 +321,25 @@ async def delete_appointment(
 
         # Fetch patient email for notification
         patient = db.query(Patient).filter(Patient.id == appointment.patient_id).first()
-        access_token, refresh_token = await get_valid_google_access_token(user_id, db)
+
+        # Fetch default admin user
+        admin = db.query(Admin).filter(Admin.id == 1).first()
 
         # Delete from Google Calendar if synced
         if appointment.event_id:
             await delete_event(user_id, db, appointment.event_id)
 
         # Notify patient about cancellation (added from_email param)
-        await send_email_via_gmail(user_id, patient.email, "Appointment Cancellation", appointment.id, db, from_email=user_email)
+        await send_email_via_gmail(admin.id, patient.email, "Appointment Cancellation", appointment.id, db)
 
         # Remove appointment from DB
         db.delete(appointment)
         db.commit()
 
         return
+    
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -349,5 +367,9 @@ async def get_all_appointments(
             return db.query(Appointment).filter(Appointment.patient_id == user_id).all()
         else:
             raise HTTPException(status_code=403, detail="Not authorized to view appointments.")
+        
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

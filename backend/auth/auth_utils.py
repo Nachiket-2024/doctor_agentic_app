@@ -146,8 +146,6 @@ def authenticate_with_google(code: str, db: Session):
 
         # Get name and email from Google
         user_name = user_info.get("name", "")
-
-        print("Google user_info response:", user_info)
         user_email = user_info.get("email", "")
 
         # -------- Step 3: Determine user role and ID --------
@@ -187,8 +185,6 @@ def authenticate_with_google(code: str, db: Session):
 
         # Save changes
         db.commit()
-
-        print(f"User email print: {user_email}")
 
         # -------- Step 5: Return user info --------
         return {

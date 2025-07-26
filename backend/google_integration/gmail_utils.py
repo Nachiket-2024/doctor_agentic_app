@@ -38,7 +38,6 @@ from ..auth.google_token_service import get_valid_google_access_token
 
 async def send_email_via_gmail(
     user_id: int,              # ID of the user whose Gmail will be used to send the mail
-    from_email: str,           # The Gmail address from which the email is sent
     to_email: str,             # Recipient's email address
     subject: str,              # Subject of the email
     appointment_id: int,       # ID of the appointment to include in the message
@@ -63,7 +62,7 @@ async def send_email_via_gmail(
         raise HTTPException(status_code=404, detail="Doctor or Patient not found")
 
     # -------- Step 3: Get valid access and refresh tokens --------
-    access_token, refresh_token = await get_valid_google_access_token(user_id, from_email, db)
+    access_token, refresh_token = await get_valid_google_access_token(user_id, "admin", db)
 
     # -------- Step 4: Build Gmail API service with credentials --------
     credentials = get_google_credentials(access_token, refresh_token)
@@ -95,7 +94,6 @@ async def send_email_via_gmail(
     # -------- Step 6: Encode email using base64 as required by Gmail API --------
     message = MIMEText(body)
     message['to'] = to_email
-    message['from'] = from_email
     message['subject'] = subject
 
     # Encode the message in base64 URL-safe format

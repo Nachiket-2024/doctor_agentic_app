@@ -78,7 +78,7 @@ async def create_event(user_id: int, db: Session, summary: str, start_time: str,
     Uses the user's stored access/refresh tokens, refreshed if needed.
     """
     # Get valid access and refresh tokens for the user
-    access_token, refresh_token = await get_valid_google_access_token(user_id, db)
+    access_token, refresh_token = await get_valid_google_access_token(user_id, "patient", db)
 
     # Initialize Google Calendar service
     service = get_calendar_service(access_token, refresh_token)
@@ -111,7 +111,7 @@ async def update_event(user_id: int, db: Session, event_id: str, summary: str, s
     Retrieves and refreshes tokens as needed for authentication.
     """
     # Get valid access and refresh tokens for the user
-    access_token, refresh_token = await get_valid_google_access_token(user_id, db)
+    access_token, refresh_token = await get_valid_google_access_token(user_id, "patient", db)
 
     # Initialize Calendar API client
     service = get_calendar_service(access_token, refresh_token)
@@ -148,7 +148,7 @@ async def delete_event(user_id: int, db: Session, event_id: str):
     Automatically handles token refresh as needed.
     """
     # Get valid access and refresh tokens for the user
-    access_token, refresh_token = await get_valid_google_access_token(user_id, db)
+    access_token, refresh_token = await get_valid_google_access_token(user_id, "patient", db)
 
     # Create Calendar API client
     service = get_calendar_service(access_token, refresh_token)

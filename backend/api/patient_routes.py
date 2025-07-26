@@ -75,8 +75,12 @@ async def get_patient(
 
         return patient
 
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ---------------------------- Route: Create Patient ----------------------------
 
@@ -108,8 +112,12 @@ async def create_patient(
 
         return new_patient
 
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ---------------------------- Route: Update Patient ----------------------------
 
@@ -150,8 +158,12 @@ async def update_patient(
 
         return patient
 
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ---------------------------- Route: Delete Patient ----------------------------
 
@@ -189,9 +201,13 @@ async def delete_patient(
             message="Patient deleted successfully",
             patient_id=patient_id
         )
+    
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ---------------------------- Route: Get All Patients ----------------------------
 
@@ -222,6 +238,9 @@ async def get_all_patients(
             raise HTTPException(status_code=404, detail="Patient not found")
 
         return [patient]
+    
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

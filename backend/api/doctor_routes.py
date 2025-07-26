@@ -62,6 +62,9 @@ async def get_doctor(
 
         # Return doctor
         return doctor
+    
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -95,6 +98,9 @@ async def create_doctor(
 
         return new_doctor
 
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -132,7 +138,10 @@ async def update_doctor(
         db.commit()
         db.refresh(doctor)
         return doctor
-
+    
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -170,6 +179,9 @@ async def delete_doctor(
             doctor_id=doctor_id
         )
 
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -205,6 +217,9 @@ async def get_all_doctors(
         # Deny others
         else:
             raise HTTPException(status_code=403, detail="Unauthorized role")
+
+    except HTTPException as http_exc:
+        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

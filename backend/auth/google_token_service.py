@@ -38,9 +38,6 @@ async def get_valid_google_access_token(user_id: int, role: str, db):
     If expired or about to expire, refresh it using the refresh token.
     """
 
-    # Log the user ID and role being checked  
-    print(f"Checking Google tokens for user_id={user_id} with role={role}")
-
     # Determine the user object based on role  
     if role == "admin":
         user = db.query(Admin).filter(Admin.id == user_id).first()
@@ -58,6 +55,10 @@ async def get_valid_google_access_token(user_id: int, role: str, db):
 
     # Extract token expiry field  
     token_expiry = user.token_expiry
+
+    # Convert string to datetime  
+    if isinstance(token_expiry, str):
+        token_expiry = datetime.fromisoformat(token_expiry)
 
     # If token is missing or will expire in next 2 minutes, refresh it  
     if not token_expiry or token_expiry <= datetime.now(timezone.utc) + timedelta(minutes=2):
