@@ -11,8 +11,11 @@ from sqlalchemy.orm import relationship
 # Import the base class that all SQLAlchemy models inherit from  
 from ..db.base import Base
 
-# Import the User model to link appointments to doctors and patients  
-from .user_model import User
+# Import the Patient model to link appointments to patients  
+from .patient_model import Patient
+
+# Import the Doctor model to link appointments to doctors  
+from .doctor_model import Doctor
 
 # ------------------------------------- Appointment Model -------------------------------------
 
@@ -25,11 +28,11 @@ class Appointment(Base):
     # Primary key column uniquely identifying each appointment record  
     id = Column(Integer, primary_key=True, index=True)
 
-    # Foreign key referencing the doctor’s user ID in the users table  
-    doctor_id = Column(Integer, ForeignKey(User.id))
+    # Foreign key referencing the doctor’s user ID in the doctors table  
+    doctor_id = Column(Integer, ForeignKey(Doctor.id))
 
-    # Foreign key referencing the patient’s user ID in the users table  
-    patient_id = Column(Integer, ForeignKey(User.id))
+    # Foreign key referencing the patient’s user ID in the patients table  
+    patient_id = Column(Integer, ForeignKey(Patient.id))
 
     # Date column storing the appointment date  
     date = Column(Date)
@@ -52,7 +55,7 @@ class Appointment(Base):
     # --------------------- ORM Relationships ---------------------
 
     # Relationship to access doctor details via doctor_id foreign key  
-    doctor = relationship("User", foreign_keys=[doctor_id])
+    doctor = relationship("Doctor", foreign_keys=[doctor_id])
 
     # Relationship to access patient details via patient_id foreign key  
-    patient = relationship("User", foreign_keys=[patient_id])
+    patient = relationship("Patient", foreign_keys=[patient_id])

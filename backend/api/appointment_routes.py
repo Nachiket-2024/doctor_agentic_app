@@ -23,8 +23,9 @@ from datetime import time
 # SQLAlchemy model for appointments
 from ..models.appointment_model import Appointment
 
-# SQLAlchemy model for users (doctors and patients)
-from ..models.user_model import User
+# SQLAlchemy models for Doctor and Patient (new tables)
+from ..models.doctor_model import Doctor
+from ..models.patient_model import Patient
 
 # Pydantic schemas for input and output validation of appointments
 from ..schemas.appointment_schema import AppointmentCreate, AppointmentUpdate, AppointmentResponse
@@ -35,10 +36,10 @@ from ..db.session import get_db
 # JWT utility to decode and verify access tokens
 from ..auth.auth_utils import verify_jwt_token
 
-# Authorization check utility for admin-only endpoints
-from ..auth.auth_user_check import admin_only
+# Authorization role and ID determination utility
+from ..auth.auth_user_check import determine_user_role_and_id
 
-# Gmail integration for sending emails
+# Gmail integration for sending emails (added 'from_email' parameter usage)
 from ..google_integration.gmail_utils import send_email_via_gmail
 
 # Google Calendar integration for event CRUD operations
@@ -73,17 +74,17 @@ async def get_appointment(
     db: Session = Depends(get_db)
 ):
     try:
-        # Decode JWT to get user identity and role
+        # Decode JWT to get user email, then role and id from DB
         payload = verify_jwt_token(token)
-        user_role = payload.get("role")
-        user_id = payload.get("id")
+        user_email = payload.get("sub")
+        user_role, user_id = determine_user_role_and_id(user_email, db)
 
         # Retrieve appointment from DB
         appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
         if not appointment:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
-        # Authorize access based on user role
+        # Authorize access based on user role and ownership
         if user_role == "admin" or \
            (user_role == "doctor" and appointment.doctor_id == user_id) or \
            (user_role == "patient" and appointment.patient_id == user_id):
@@ -103,17 +104,17 @@ async def create_appointment(
     db: Session = Depends(get_db)
 ):
     try:
-        # Decode JWT to get user role and ID
+        # Decode JWT to get user email, then role and id from DB
         payload = verify_jwt_token(token)
-        user_role = payload.get("role")
-        user_id = payload.get("id")
+        user_email = payload.get("sub")
+        user_role, user_id = determine_user_role_and_id(user_email, db)
 
         # Only patients or admins can create appointments
         if user_role not in ["admin", "patient"]:
             raise HTTPException(status_code=403, detail="Only admin or patient can create an appointment")
 
-        # Fetch doctor info from DB
-        doctor = db.query(User).filter(User.id == appointment.doctor_id, User.role == "doctor").first()
+        # Fetch doctor info from Doctor table
+        doctor = db.query(Doctor).filter(Doctor.id == appointment.doctor_id).first()
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
 
@@ -156,14 +157,14 @@ async def create_appointment(
         db.commit()
         db.refresh(new_appointment)
 
-        # Retrieve patient info for email/calendar purposes
-        patient = db.query(User).filter(User.id == new_appointment.patient_id).first()
+        # Retrieve patient info from Patient table
+        patient = db.query(Patient).filter(Patient.id == new_appointment.patient_id).first()
 
         # Get valid Google access and refresh tokens for calendar API
         access_token, refresh_token = await get_valid_google_access_token(user_id, db)
 
-        # Send email to patient confirming appointment
-        await send_email_via_gmail(user_id, patient.email, "Appointment Confirmation", new_appointment.id, db)
+        # Send email to patient confirming appointment (added from_email param)
+        await send_email_via_gmail(user_id, patient.email, "Appointment Confirmation", new_appointment.id, db, from_email=user_email)
 
         # Create Google Calendar event for the appointment
         created_event = await create_event(
@@ -197,10 +198,14 @@ async def update_appointment(
     db: Session = Depends(get_db)
 ):
     try:
-        # Verify JWT and admin access
+        # Verify JWT and confirm user role for update access
         payload = verify_jwt_token(token)
-        admin_only(token, db)
-        user_id = payload.get("id")
+        user_email = payload.get("sub")
+        user_role, user_id = determine_user_role_and_id(user_email, db)
+
+        # Only admin can update appointments
+        if user_role != "admin":
+            raise HTTPException(status_code=403, detail="Only admin can update appointments")
 
         # Fetch existing appointment
         appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
@@ -213,7 +218,7 @@ async def update_appointment(
         start_time = appointment_update.start_time or appointment.start_time
 
         # Validate doctor's availability on new date
-        doctor = db.query(User).filter(User.id == doctor_id).first()
+        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
         weekday_key = calendar.day_name[date.weekday()].lower()[:3]
         available_days = doctor.available_days or {}
         if weekday_key not in available_days:
@@ -254,7 +259,7 @@ async def update_appointment(
         db.refresh(appointment)
 
         # Fetch patient info
-        patient = db.query(User).filter(User.id == appointment.patient_id).first()
+        patient = db.query(Patient).filter(Patient.id == appointment.patient_id).first()
         access_token, refresh_token = await get_valid_google_access_token(user_id, db)
 
         # Update calendar event if exists
@@ -269,8 +274,8 @@ async def update_appointment(
                 patient.email
             )
 
-        # Notify patient via email
-        await send_email_via_gmail(user_id, patient.email, "Updated Appointment", appointment.id, db)
+        # Notify patient via email (added from_email param)
+        await send_email_via_gmail(user_id, patient.email, "Updated Appointment", appointment.id, db, from_email=user_email)
 
         return appointment
 
@@ -287,10 +292,14 @@ async def delete_appointment(
     db: Session = Depends(get_db)
 ):
     try:
-        # Authenticate and check admin access
+        # Authenticate and confirm user role for delete access
         payload = verify_jwt_token(token)
-        admin_only(token, db)
-        user_id = payload.get("id")
+        user_email = payload.get("sub")
+        user_role, user_id = determine_user_role_and_id(user_email, db)
+
+        # Only admin can delete appointments
+        if user_role != "admin":
+            raise HTTPException(status_code=403, detail="Only admin can delete appointments")
 
         # Locate appointment in DB
         appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
@@ -298,15 +307,15 @@ async def delete_appointment(
             raise HTTPException(status_code=404, detail="Appointment not found")
 
         # Fetch patient email for notification
-        patient = db.query(User).filter(User.id == appointment.patient_id).first()
+        patient = db.query(Patient).filter(Patient.id == appointment.patient_id).first()
         access_token, refresh_token = await get_valid_google_access_token(user_id, db)
 
         # Delete from Google Calendar if synced
         if appointment.event_id:
             await delete_event(user_id, db, appointment.event_id)
 
-        # Notify patient about cancellation
-        await send_email_via_gmail(user_id, patient.email, "Appointment Cancellation", appointment.id, db)
+        # Notify patient about cancellation (added from_email param)
+        await send_email_via_gmail(user_id, patient.email, "Appointment Cancellation", appointment.id, db, from_email=user_email)
 
         # Remove appointment from DB
         db.delete(appointment)
@@ -326,10 +335,10 @@ async def get_all_appointments(
     db: Session = Depends(get_db)
 ):
     try:
-        # Decode and extract user role and ID
+        # Decode and extract user email, role and ID
         payload = verify_jwt_token(token)
-        user_role = payload.get("role")
-        user_id = payload.get("id")
+        user_email = payload.get("sub")
+        user_role, user_id = determine_user_role_and_id(user_email, db)
 
         # Return appointments based on access rights
         if user_role == "admin":

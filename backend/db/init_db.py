@@ -7,7 +7,8 @@ from .session import engine
 from .base import Base
 
 # Import model classes so their table definitions are registered with SQLAlchemy
-from ..models.user_model import User
+from ..models.doctor_model import Doctor
+from ..models.patient_model import Patient
 from ..models.admin_model import Admin
 from ..models.appointment_model import Appointment
 

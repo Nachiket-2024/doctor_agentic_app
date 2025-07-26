@@ -1,243 +1,227 @@
 # ---------------------------- External Imports ----------------------------
 
-# Import FastAPI components for routing, dependency injection, HTTP errors, and status codes
+# FastAPI core components for building routes, handling requests, and raising exceptions
 from fastapi import APIRouter, Depends, HTTPException, status
-  
-# SQLAlchemy ORM session for database interactions
-from sqlalchemy.orm import Session   
 
-# OAuth2 scheme to extract JWT token from Authorization header
-from fastapi.security import OAuth2PasswordBearer              
+# SQLAlchemy session class for database operations
+from sqlalchemy.orm import Session
+
+# OAuth2 scheme for extracting bearer token from the Authorization header
+from fastapi.security import OAuth2PasswordBearer
 
 # ---------------------------- Internal Imports ----------------------------
 
-# User SQLAlchemy model representing users and patients
-from ..models.user_model import User       
+# Import database session provider function
+from ..db.session import get_db
 
-# Pydantic schemas for validating request/response data
-from ..schemas.user_schema import UserCreate, UserResponse  
+# Utility to decode and validate JWT tokens
+from ..auth.auth_utils import verify_jwt_token
 
-# Dependency function to get a DB session instance
-from ..db.session import get_db   
+# Utility to determine user role and ID based on email
+from ..auth.auth_user_check import determine_user_role_and_id
 
-# Utility to verify the validity of JWT tokens
-from ..auth.auth_utils import verify_jwt_token   
+# SQLAlchemy Patient model for database operations
+from ..models.patient_model import Patient
 
-# Dependency enforcing that only admins can access a route
-from ..auth.auth_user_check import admin_only                    
+# Pydantic schemas for request and response validation
+from ..schemas.patient_schema import (
+    PatientCreate,           # Schema used for creating a new patient
+    PatientRead,             # Schema used for reading patient data
+    PatientUpdate,           # Schema used for updating patient data
+    PatientDeleteResponse    # Schema used as a response on successful deletion
+)
 
 # ---------------------------- OAuth2 Setup ----------------------------
 
-# OAuth2PasswordBearer instance to extract token from requests
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")          
+# Create an instance of OAuth2PasswordBearer to extract token from Authorization header
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # ---------------------------- Router Setup ----------------------------
 
-# Create FastAPI router instance with prefix and tags for grouping endpoints
+# Create a FastAPI router instance for patient-related endpoints
 router = APIRouter(
-    prefix="/patient",   # All endpoints under /patient
-    tags=["Patient"],    # Grouped under "Patient" tag in docs
+    prefix="/patient",     # Route prefix for all endpoints in this router
+    tags=["Patient"],      # Tag name used in API docs
 )
 
 # ---------------------------- Route: Get Patient by ID ----------------------------
 
-@router.get("/{patient_id}", response_model=UserResponse)
+@router.get("/{patient_id}", response_model=PatientRead)
 async def get_patient(
-    patient_id: int,                         # Patient ID path parameter
-    token: str = Depends(oauth2_scheme),    # JWT token extracted from header
-    db: Session = Depends(get_db)            # Database session injected
+    patient_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
     """
-    Retrieve a single patient's details by ID.
-    Accessible by the patient themselves or an admin.
+    Get a patient's profile by ID.
+    Only the patient themselves or an admin can access the data.
     """
     try:
-        # Verify JWT token and extract payload
+        # Decode and verify JWT token to extract email
         payload = verify_jwt_token(token)
-        user_email = payload.get("sub")  # Email of requester
+        user_email = payload.get("sub")
 
-        # Query DB for patient with given ID and role 'patient'
-        patient = db.query(User).filter(User.id == patient_id, User.role == "patient").first()
+        # Determine the user's role and ID
+        role, user_id = determine_user_role_and_id(user_email, db)
 
-        # If patient not found, raise 404
+        # Fetch the patient from DB by ID
+        patient = db.query(Patient).filter(Patient.id == patient_id).first()
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
 
-        # Only the patient themselves or an admin can view this record
-        if patient.email != user_email and payload.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="You can only view your own information")
+        # Allow only self-access or admin access
+        if role != "admin" and patient.email != user_email:
+            raise HTTPException(status_code=403, detail="Access denied")
 
-        # Return patient details, FastAPI serializes via UserResponse schema
         return patient
-    except Exception as e:
-        # Catch-all for unexpected errors, return HTTP 500 with error details
-        raise HTTPException(status_code=500, detail=str(e))
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Create Patient ----------------------------
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=PatientRead, status_code=status.HTTP_201_CREATED)
 async def create_patient(
-    patient: UserCreate,                     # Request body validated against UserCreate schema
-    token: str = Depends(oauth2_scheme),    # JWT token dependency
-    db: Session = Depends(get_db)            # DB session dependency
+    patient: PatientCreate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
     """
-    Create a new patient.
-    Patients can create their own accounts.
-    Admins can create accounts on behalf of others.
+    Create a new patient account.
     """
     try:
-        # Verify JWT token and extract user info
+        # Decode JWT token to verify user
         payload = verify_jwt_token(token)
-        user_email = payload.get("sub")
+        _ = payload.get("sub")
 
-        # Check if patient already exists with this email
-        existing_patient = db.query(User).filter(User.email == user_email, User.role == "patient").first()
-        if existing_patient:
+        # Check if patient already exists
+        existing = db.query(Patient).filter(Patient.email == patient.email).first()
+        if existing:
             raise HTTPException(status_code=400, detail="Patient already exists")
 
-        # Create new User instance with role 'patient'
-        new_patient = User(
-            name=patient.name,
-            email=patient.email,
-            role="patient",
-            age=patient.age,
-            phone_number=patient.phone_number,
-        )
+        # Create a new patient entry
+        new_patient = Patient(**patient.dict())
 
-        # Admin can create patient on behalf of others
-        if payload.get("role") == "admin":
-            db.add(new_patient)
-            db.commit()
-            db.refresh(new_patient)
-            return new_patient
-
-        # Normal patients can create their own account
         db.add(new_patient)
         db.commit()
         db.refresh(new_patient)
-        return new_patient
-    except Exception as e:
-        # Return 500 on error with exception details
-        raise HTTPException(status_code=500, detail=str(e))
 
+        return new_patient
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Update Patient ----------------------------
 
-@router.put("/{patient_id}", response_model=UserResponse)
+@router.put("/{patient_id}", response_model=PatientRead)
 async def update_patient(
-    patient_id: int,                        # Patient ID to update
-    updated_patient: UserCreate,            # Updated patient data
-    token: str = Depends(oauth2_scheme),   # JWT token dependency
-    db: Session = Depends(get_db)           # DB session dependency
+    patient_id: int,
+    update_data: PatientUpdate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
     """
-    Update a patient's information.
-    Allowed only for the patient themselves or admins.
+    Update a patient's details.
+    Only the patient themselves or an admin can perform this action.
     """
     try:
-        # Decode token and get requester info
+        # Verify JWT token and extract email
         payload = verify_jwt_token(token)
         user_email = payload.get("sub")
 
-        # Retrieve patient from DB
-        patient = db.query(User).filter(User.id == patient_id, User.role == "patient").first()
+        # Get the user's role
+        role, _ = determine_user_role_and_id(user_email, db)
+
+        # Fetch the patient to update
+        patient = db.query(Patient).filter(Patient.id == patient_id).first()
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
 
-        # Authorization: only self or admin allowed to update
-        if patient.email != user_email and payload.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="You can only update your own information")
+        # Access control: patient themselves or admin
+        if role != "admin" and patient.email != user_email:
+            raise HTTPException(status_code=403, detail="Access denied")
 
-        # Update fields if provided, else retain old values
-        patient.name = updated_patient.name or patient.name
-        patient.email = updated_patient.email or patient.email
-        patient.age = updated_patient.age or patient.age
-        patient.phone_number = updated_patient.phone_number or patient.phone_number
+        # Update only provided fields
+        for key, value in update_data.dict(exclude_unset=True).items():
+            setattr(patient, key, value)
 
-        # Commit changes to DB
         db.commit()
         db.refresh(patient)
+
         return patient
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------------------------- Route: Delete Patient ----------------------------
 
-# ---------------------------- Route: Delete Patient (Admin Only) ----------------------------
-
-@router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{patient_id}", response_model=PatientDeleteResponse)
 async def delete_patient(
-    patient_id: int,                        # Patient ID to delete
-    token: str = Depends(oauth2_scheme),   # JWT token dependency
-    db: Session = Depends(get_db)           # DB session dependency
+    patient_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
     """
-    Delete a patient record.
-    Only accessible by admin users.
+    Delete a patient by ID.
+    Only accessible to admins.
     """
     try:
-        # Ensure user is admin, raises if not
-        admin_only(token, db)
+        # Verify JWT token and extract email
+        payload = verify_jwt_token(token)
+        user_email = payload.get("sub")
 
-        # Find patient by ID
-        patient = db.query(User).filter(User.id == patient_id, User.role == "patient").first()
+        # Check role using utility
+        role, _ = determine_user_role_and_id(user_email, db)
+
+        # Allow only admin to delete
+        if role != "admin":
+            raise HTTPException(status_code=403, detail="Only admin can delete patients")
+
+        # Fetch and delete the patient
+        patient = db.query(Patient).filter(Patient.id == patient_id).first()
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
 
-        # Delete patient and commit transaction
         db.delete(patient)
         db.commit()
-        return {"message": "Patient deleted successfully"}
+
+        return PatientDeleteResponse(
+            message="Patient deleted successfully",
+            patient_id=patient_id
+        )
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # ---------------------------- Route: Get All Patients ----------------------------
 
-@router.get("/", response_model=list[UserResponse])
+@router.get("/", response_model=list[PatientRead])
 async def get_all_patients(
-    token: str = Depends(oauth2_scheme),   # JWT token dependency
-    db: Session = Depends(get_db)           # DB session dependency
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
     """
-    Return a list of patients filtered by the requester's role:
-    - Admin: returns all patients.
-    - Patient: returns only their own record.
-    - Doctor: not implemented yet, raises 501.
+    Get all patient records.
+    Admins see all; regular patients see only their own info.
     """
     try:
-        # Decode token payload to get user email and role
+        # Extract user identity from token
         payload = verify_jwt_token(token)
         user_email = payload.get("sub")
-        role = payload.get("role")
 
-        # Admin can see all patients
+        # Determine role of the requester
+        role, user_id = determine_user_role_and_id(user_email, db)
+
+        # Admin: return all patients
         if role == "admin":
-            admin_only(token, db)  # Enforce admin check
+            return db.query(Patient).all()
 
-            patients = db.query(User).filter(User.role == "patient").all()
-            return patients
+        # Patient: return only their own record
+        patient = db.query(Patient).filter(Patient.email == user_email).first()
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
 
-        # Patient sees only their own record
-        elif role == "patient":
-            patient = db.query(User).filter(User.email == user_email, User.role == "patient").first()
-            if not patient:
-                raise HTTPException(status_code=404, detail="Patient record not found")
-            return [patient]  # Return list for schema compatibility
-
-        # Doctor functionality to be implemented
-        elif role == "doctor":
-            doctor = db.query(User).filter(User.email == user_email, User.role == "doctor").first()
-            if not doctor:
-                raise HTTPException(status_code=403, detail="Doctor not found")
-            raise HTTPException(status_code=501, detail="Doctor-patient filtering not yet implemented")
-
-        # Invalid roles get forbidden
-        else:
-            raise HTTPException(status_code=403, detail="Unauthorized role")
+        return [patient]
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()  # Log traceback to console
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail=str(e))
