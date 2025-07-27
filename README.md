@@ -10,7 +10,7 @@ The **Doctor Agentic App** is a full-stack application for doctor appointment sc
 
 ## Tech Stack
 
-- **Backend**: FastAPI, SQLAlchemy, PostgreSQL 
+- **Backend**: Python ,FastAPI, SQLAlchemy, PostgreSQL 
 - **Frontend**: React, TailwindCSS
 - **Other**: Pydantic, Requests, Google APIs (Calendar, Gmail)
 
@@ -69,7 +69,7 @@ DATABASE_URL=postgresql://username:password@localhost:5432/db_name_here
 
 # JWT Secret Key used for signing tokens
 JWT_SECRET=jwt_secret_key_here
-JWT_ALGORITHM=HS256
+JWT_ALGORITHM=jwt_algorithm_here
 
 # JWT Token Expiry
 ACCESS_TOKEN_EXPIRE_MINUTES=minutes_in_numbers_here
@@ -82,6 +82,8 @@ GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
 GOOGLE_SCOPES=openid,email,profile,https://www.googleapis.com/auth/calendar,https://www.googleapis.com/auth/gmail.send
 GOOGLE_TOKEN_FILE=token.json
 
+# Frontend URI
+FRONTEND_REDIRECT_URI=http://localhost:5173/dashboard
 ```
 
 ---

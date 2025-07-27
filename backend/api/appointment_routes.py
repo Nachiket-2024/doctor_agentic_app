@@ -169,11 +169,11 @@ async def create_appointment(
         admin = db.query(Admin).filter(Admin.id == 1).first()
 
         # Send email to patient confirming appointment (added from_email param)
-        await send_email_via_gmail(admin.id, patient.email, "Appointment Confirmation", new_appointment.id, db)
+        await send_email_via_gmail(admin.id, patient.email, "Appointment Confirmation", new_appointment.id, db, email_type="created")
 
         # Create Google Calendar event for the appointment
         created_event = await create_event(
-            user_id,
+            patient.id,
             db,
             f"Appointment with {doctor.name}",
             f"{new_appointment.date}T{new_appointment.start_time.isoformat()}",
@@ -275,17 +275,17 @@ async def update_appointment(
         # Update calendar event if exists
         if appointment.event_id:
             await update_event(
-                user_id,
+                patient.id,
                 db,
                 appointment.event_id,
-                f"Updated Appointment with Dr. {doctor.name}",
+                f"Updated Appointment with {doctor.name}",
                 f"{appointment.date}T{appointment.start_time.isoformat()}",
                 f"{appointment.date}T{appointment.end_time.isoformat()}",
                 patient.email
             )
 
         # Notify patient via email (added from_email param)
-        await send_email_via_gmail(admin.id, patient.email, "Updated Appointment", appointment.id, db)
+        await send_email_via_gmail(admin.id, patient.email, "Updated Appointment", appointment.id, db, email_type="updated")
 
         return appointment
     
@@ -327,10 +327,10 @@ async def delete_appointment(
 
         # Delete from Google Calendar if synced
         if appointment.event_id:
-            await delete_event(user_id, db, appointment.event_id)
+            await delete_event(patient.id, db, appointment.event_id)
 
         # Notify patient about cancellation (added from_email param)
-        await send_email_via_gmail(admin.id, patient.email, "Appointment Cancellation", appointment.id, db)
+        await send_email_via_gmail(admin.id, patient.email, "Appointment Cancellation", appointment.id, db, email_type="cancelled")
 
         # Remove appointment from DB
         db.delete(appointment)
