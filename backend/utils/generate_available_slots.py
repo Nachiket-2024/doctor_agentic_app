@@ -5,64 +5,57 @@ from datetime import datetime, timedelta, time
 
 # ------------------------------------- Slot Builder Function -------------------------------------
 
-# Function to generate all possible time slots from given time ranges grouped by weekday
-def generate_all_weekly_slots(weekly_time_ranges: dict[str, list[str]], slot_duration: int) -> dict[str, list[str]]:
+# Function to generate all possible weekly slot start times (as strings) per weekday
+def generate_all_weekly_slots(time_ranges_by_day: dict[str, list[str]], slot_duration: int) -> dict[str, list[str]]:
     """
-    Generate all possible weekly slot start times from a dict of daily time ranges.
+    Generate a dictionary of available slot times (as strings) per weekday from time ranges.
 
     Args:
-        weekly_time_ranges (Dict[str, List[str]]): e.g., {"mon": ["10:00-12:00", "14:00-16:00"], "tue": ["09:00-11:00"], ...}
-        slot_duration (int): Duration of each slot in minutes
+        time_ranges_by_day (Dict[str, List[str]]): Dict with weekdays as keys and time ranges as values.
+            Example: {"mon": ["10:00-12:00", "14:00-16:00"], "tue": [], ...}
+        slot_duration (int): Duration of each slot in minutes.
 
     Returns:
-        Dict[str, List[str]]: Dictionary mapping weekday keys to available slot strings
+        Dict[str, List[str]]: Dictionary with weekdays as keys and slot start times in "HH:MM" format.
     """
 
-    # Initialize output dictionary to hold day-wise slot lists
-    weekly_slots: dict[str, list[str]] = {}
+    # Define all weekdays to ensure output is complete
+    weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
-    # Iterate over each weekday and its list of time ranges
-    for weekday, time_ranges in weekly_time_ranges.items():
+    # Initialize the weekly slot dictionary with empty lists for each day
+    weekly_slots = {day: [] for day in weekdays}
 
-        # Initialize list to store slots for current weekday
-        day_slots: list[str] = []
-
-        # Skip if no time ranges provided for the day
-        if not time_ranges:
-            weekly_slots[weekday] = []
+    # Iterate over each day and its associated time ranges
+    for day, ranges in time_ranges_by_day.items():
+        # Skip if day is not a valid weekday key
+        if day not in weekly_slots:
             continue
 
-        # Iterate over each time range string like "10:00-12:00"
-        for time_range in time_ranges:
-
-            # Skip if the time range is empty or invalid
+        # Process each time range for the given day
+        for time_range in ranges:
+            # Skip empty or incorrectly formatted time ranges
             if not time_range or "-" not in time_range:
                 continue
 
-            # Split into start and end time strings
+            # Split the time range into start and end time strings
             start_str, end_str = time_range.strip().split("-")
 
-            # Parse start and end time strings to time objects
+            # Convert start and end strings to `time` objects
             start_time = datetime.strptime(start_str.strip(), "%H:%M").time()
             end_time = datetime.strptime(end_str.strip(), "%H:%M").time()
 
-            # Combine with today's date to allow arithmetic
+            # Combine time with today’s date for datetime arithmetic
             current = datetime.combine(datetime.today(), start_time)
             end = datetime.combine(datetime.today(), end_time)
 
-            # Define the time increment using timedelta
+            # Define the slot increment as a timedelta
             delta = timedelta(minutes=slot_duration)
 
-            # Loop to generate all slot times within this range
+            # Generate slot times and format them as "HH:MM"
             while current + delta <= end:
-                # Format the time object as "HH:MM" and append to list
-                day_slots.append(current.strftime("%H:%M"))
-
-                # Move to next time slot
+                slot_str = current.time().strftime("%H:%M")
+                weekly_slots[day].append(slot_str)
                 current += delta
 
-        # Assign the collected slots to the weekday in the dictionary
-        weekly_slots[weekday] = day_slots
-
-    # Return the full dictionary of weekly slot timings
+    # Return the final dictionary of weekday slot times as strings
     return weekly_slots
