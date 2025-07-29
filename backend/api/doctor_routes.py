@@ -9,6 +9,9 @@ from sqlalchemy.orm import Session
 # OAuth2 dependency to extract token
 from fastapi.security import OAuth2PasswordBearer
 
+# For printing detailed exception tracebacks during development
+import traceback
+
 # ---------------------------- Internal Imports ----------------------------
 
 # Import Doctor ORM model
@@ -25,6 +28,9 @@ from ..auth.auth_utils import verify_jwt_token
 
 # Function to determine user's role and ID
 from ..auth.auth_user_check import determine_user_role_and_id
+
+# Utility function to compute weekly slots from available_days
+from ..utils.generate_available_slots import generate_all_weekly_slots
 
 # ---------------------------- Initialization ----------------------------
 
@@ -67,6 +73,7 @@ async def get_doctor(
         raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Create Doctor (Admin Only) ----------------------------
@@ -92,6 +99,13 @@ async def create_doctor(
 
         # Create and persist new doctor
         new_doctor = Doctor(**doctor.model_dump())
+
+        # Generate and store weekly available slots from available_days
+        new_doctor.weekly_available_slots = generate_all_weekly_slots(
+            new_doctor.available_days,
+            new_doctor.slot_duration
+        )
+
         db.add(new_doctor)
         db.commit()
         db.refresh(new_doctor)
@@ -102,6 +116,7 @@ async def create_doctor(
         raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
     
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Update Doctor (Admin Only) ----------------------------
@@ -130,10 +145,25 @@ async def update_doctor(
 
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        # Store old values for comparison
+        old_available_days = doctor.available_days
+        old_slot_duration = doctor.slot_duration
 
-        # Apply updates
-        for key, value in updated_doctor.model_dump(exclude_unset=True).items():
+        # Apply updates from request payload
+        update_data = updated_doctor.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
             setattr(doctor, key, value)
+
+        # Regenerate weekly slots if available_days or slot_duration changed
+        if (
+            ("available_days" in update_data and doctor.available_days != old_available_days)
+            or ("slot_duration" in update_data and doctor.slot_duration != old_slot_duration)
+        ):
+            doctor.weekly_available_slots = generate_all_weekly_slots(
+                doctor.available_days,
+                doctor.slot_duration
+            )
 
         db.commit()
         db.refresh(doctor)
@@ -143,6 +173,7 @@ async def update_doctor(
         raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
     
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Delete Doctor (Admin Only) ----------------------------
@@ -183,6 +214,7 @@ async def delete_doctor(
         raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
     
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Get All Doctors ----------------------------
@@ -222,4 +254,5 @@ async def get_all_doctors(
         raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
 
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

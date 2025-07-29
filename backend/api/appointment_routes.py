@@ -47,10 +47,7 @@ from ..google_integration.gmail_utils import send_email_via_gmail
 from ..google_integration.calendar_utils import create_event, update_event, delete_event
 
 # Utility to generate available time slots based on availability
-from ..utils.slot_utils import generate_available_slots
-
-# Asynchronous token refresh utility for Google APIs
-from ..auth.google_token_service import get_valid_google_access_token
+from ..utils.filter_booked_slots import filter_booked_slots
 
 # ---------------------------- OAuth2 Setup ----------------------------
 
@@ -129,15 +126,20 @@ async def create_appointment(
         if weekday_key not in available_days:
             raise HTTPException(status_code=400, detail="Doctor not available on selected day")
 
-        # Generate time slots and validate chosen time
-        time_range = available_days[weekday_key]
+        # Get all slots for this day from precomputed weekly_available_slots
+        weekly_slots = doctor.weekly_available_slots or {}
+        day_slots = weekly_slots.get(weekday_key, [])
+
+        # Filter out booked slots from that day's list
         booked = db.query(Appointment).filter(
             Appointment.doctor_id == appointment.doctor_id,
             Appointment.date == appointment.date
         ).all()
         booked_times = [appt.start_time for appt in booked]
-        available_slots = generate_available_slots(time_range, doctor.slot_duration, booked_times)
-        if appointment.start_time not in available_slots:
+        available_slots = filter_booked_slots(day_slots, booked_times)
+
+        # Validate the requested slot
+        if appointment.start_time.strftime("%H:%M") not in available_slots:
             raise HTTPException(status_code=400, detail="Selected time slot is already booked or unavailable")
 
         # Auto-compute end_time if not given
@@ -232,16 +234,21 @@ async def update_appointment(
         if weekday_key not in available_days:
             raise HTTPException(status_code=400, detail="Doctor not available on selected day")
 
-        # Generate updated available slots and check conflict
-        time_range = available_days[weekday_key]
+        # Get all slots for this day from precomputed weekly_available_slots
+        weekly_slots = doctor.weekly_available_slots or {}
+        day_slots = weekly_slots.get(weekday_key, [])
+
+        # Filter out slots already booked (excluding current appointment)
         booked = db.query(Appointment).filter(
             Appointment.doctor_id == doctor_id,
             Appointment.date == date,
             Appointment.id != appointment_id
         ).all()
         booked_times = [appt.start_time for appt in booked]
-        available_slots = generate_available_slots(time_range, doctor.slot_duration, booked_times)
-        if start_time not in available_slots:
+        available_slots = filter_booked_slots(day_slots, booked_times)
+
+        # Validate the updated slot
+        if start_time.strftime("%H:%M") not in available_slots:
             raise HTTPException(status_code=400, detail="Selected time slot is already booked or unavailable")
 
         # Update appointment fields

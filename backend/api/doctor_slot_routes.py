@@ -21,14 +21,14 @@ from fastapi.security import OAuth2PasswordBearer
 # Dependency to get a database session
 from ..db.session import get_db
 
-# Doctor model to fetch doctor availability and constraints
+# Doctor model to fetch precomputed weekly slots
 from ..models.doctor_model import Doctor
 
 # Appointment model representing bookings
 from ..models.appointment_model import Appointment
 
-# Utility to generate available time slots given constraints
-from ..utils.slot_utils import generate_available_slots
+# Utility to remove booked slots from precomputed ones
+from ..utils.filter_booked_slots import filter_booked_slots
 
 
 # ---------------------------- OAuth2 Setup ----------------------------
@@ -48,70 +48,58 @@ router = APIRouter(
 
 # ---------------------------- Route: Get Available Slots ----------------------------
 
+# Define an HTTP GET route to fetch available slots for a doctor on a given date
 @router.get("/{doctor_id}/available-slots")
 async def get_available_slots(
-    doctor_id: int,                                     # Doctor's unique ID as path parameter
-    date_str: str = Query(..., description="Date in YYYY-MM-DD"),  # Date query parameter in ISO format
-    token: str = Depends(oauth2_scheme),                # Extract JWT token from Authorization header
-    db: Session = Depends(get_db)                       # Inject database session dependency
+    doctor_id: int,                                     # Doctor's unique ID passed as a path parameter
+    date_str: str = Query(..., description="Date in YYYY-MM-DD"),  # Target date for slot query (required query param)
+    token: str = Depends(oauth2_scheme),                # Extract the bearer token from request headers
+    db: Session = Depends(get_db)                       # Inject a database session into the route
 ):
     """
-    Return available time slots for a doctor on a specified date.
-
-    Steps:
-    - Parse input date string to date object.
-    - Validate doctor existence.
-    - Find doctor's available time ranges for the weekday.
-    - Get all booked appointment times for the date.
-    - Generate available slots excluding booked times.
+    Returns a list of available slot start times (as strings) for a doctor
+    on a given date, using precomputed weekly slots and filtering out booked ones.
     """
     try:
-        # -------- Parse the input date string to a date object --------
+        # -------- Parse the input date string to a datetime.date object --------
         try:
             target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date format")
 
-        # -------- Query doctor by ID --------
+        # -------- Retrieve the doctor by ID from the database --------
         doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
 
-        # -------- Get weekday key like 'mon', 'tue', etc. --------
+        # -------- Derive the weekday key ('mon', 'tue', etc.) from the target date --------
         weekday_key = calendar.day_name[target_date.weekday()].lower()[:3]
 
-        # -------- Retrieve the doctor's available days dictionary --------
-        available_days = doctor.available_days or {}
+        # -------- Load the doctor's precomputed weekly slots dictionary --------
+        weekly_slots = doctor.weekly_available_slots or {}
 
-        # -------- If no availability on the day, return empty list --------
-        if weekday_key not in available_days:
+        # -------- If the doctor is unavailable on that day, return empty list --------
+        if weekday_key not in weekly_slots:
             return []
 
-        # -------- Extract the list of time ranges for that weekday --------
-        time_ranges = available_days[weekday_key]
+        # -------- Extract all slot start times (as strings) for the given weekday --------
+        all_slots = weekly_slots[weekday_key]
 
-        # -------- If no time ranges are defined, return empty list --------
-        if not time_ranges:
-            return []
-
-        # -------- Use the slot duration set by doctor --------
-        slot_duration = doctor.slot_duration
-
-        # -------- Query all appointments booked for the doctor on the target date --------
+        # -------- Query booked appointments for this doctor on the target date --------
         appointments = db.query(Appointment).filter(
             Appointment.doctor_id == doctor_id,
             Appointment.date == target_date
         ).all()
 
-        # -------- Collect booked start times to exclude from available slots --------
+        # -------- Extract booked slot start times as time objects --------
         booked_times = [appt.start_time for appt in appointments]
 
-        # -------- Generate available slots excluding booked times --------
-        available_slots = generate_available_slots(time_ranges, slot_duration, booked_times)
+        # -------- Filter out booked slots from the precomputed slot list --------
+        available_slots = filter_booked_slots(all_slots, booked_times)
 
-        # -------- Return the list of available slots --------
+        # -------- Return the final list of available (unbooked) slot strings --------
         return available_slots
 
     except Exception as e:
-        # -------- Handle unexpected errors with 500 Internal Server Error --------
+        # -------- If an unexpected error occurs, return a 500 error with details --------
         raise HTTPException(status_code=500, detail=str(e))

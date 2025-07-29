@@ -14,7 +14,7 @@ from ..db.base import Base
 class Doctor(Base):
     """
     Doctor model for storing doctor-specific user information, 
-    including Google integration fields.
+    including Google integration fields and weekly slot metadata.
     """
 
     # Name of the table in the database
@@ -36,15 +36,19 @@ class Doctor(Base):
     specialization = Column(String, nullable=True)
 
     # Weekly availability schedule in JSON format 
-    # Example: {"Mon": ["09:00-12:00", "14:00-17:00"]}
+    # Example: {"mon": ["09:00-12:00", "14:00-17:00"], "tue": [...], ...}
     available_days = Column(JSON, nullable=True)
 
-    # Appointment duration in minutes (used for calendar slot calculation)
+    # Appointment duration in minutes (used for slot interval calculations)
     slot_duration = Column(Integer, nullable=True)
+
+    # Precomputed weekly slot start times in JSON format for each weekday
+    # Example: {"mon": ["09:00", "09:30", "10:00"], "tue": ["10:00", ...], ...}
+    weekly_available_slots = Column(JSON, nullable=True)
 
     # ---------------- Google OAuth Token Fields ----------------
 
-    # Access token for authorized Google API requests (required after OAuth login)
+    # Access token for authorized Google API requests (set after Google login)
     access_token = Column(String, nullable=True)
 
     # Refresh token to obtain new access tokens when the current one expires
