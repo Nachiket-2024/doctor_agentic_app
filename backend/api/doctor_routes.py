@@ -1,258 +1,125 @@
 # ---------------------------- External Imports ----------------------------
 
-# Import FastAPI core components
-from fastapi import APIRouter, Depends, HTTPException, status
+# Import FastAPI core components for routing, dependency injection, and HTTP status codes
+from fastapi import APIRouter, Depends, status
 
-# Import Session class from SQLAlchemy
+# Import Session class for database operations using SQLAlchemy ORM
 from sqlalchemy.orm import Session
 
-# OAuth2 dependency to extract token
+# Import OAuth2 dependency to extract the access token from request headers
 from fastapi.security import OAuth2PasswordBearer
-
-# For printing detailed exception tracebacks during development
-import traceback
 
 # ---------------------------- Internal Imports ----------------------------
 
-# Import Doctor ORM model
-from ..models.doctor_model import Doctor
-
-# Import Pydantic schemas for Doctor
+# Import Pydantic schemas for Doctor for input validation and response formatting
 from ..schemas.doctor_schema import DoctorCreate, DoctorRead, DoctorUpdate, DoctorDeleteResponse
 
-# Import DB session getter
+# Import the function to retrieve a database session via dependency injection
 from ..db.session import get_db
 
-# JWT verification function
-from ..auth.auth_utils import verify_jwt_token
+# Import service function to retrieve a doctor by ID
+from ..services.doctor.get_doctor_by_id import get_doctor_by_id_service
 
-# Function to determine user's role and ID
-from ..auth.auth_user_check import determine_user_role_and_id
+# Import service function to create a new doctor
+from ..services.doctor.create_doctor import create_doctor_service
 
-# Utility function to compute weekly slots from available_days
-from ..utils.generate_available_slots import generate_all_weekly_slots
+# Import service function to update an existing doctor's details
+from ..services.doctor.update_doctor import update_doctor_service
+
+# Import service function to delete a doctor
+from ..services.doctor.delete_doctor import delete_doctor_service
+
+# Import service function to retrieve all doctors
+from ..services.doctor.get_all_doctors import get_all_doctors_service
 
 # ---------------------------- Initialization ----------------------------
 
-# OAuth2 token extractor
+# Initialize the OAuth2 password bearer to extract token from Authorization header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# FastAPI router instance
+# Create a FastAPI APIRouter instance for the doctor endpoints
 router = APIRouter(
-    prefix="/doctor",
-    tags=["Doctor"],
+    prefix="/doctor",         # Base path for all endpoints in this router
+    tags=["Doctor"],          # Tag used in OpenAPI documentation
 )
 
 # ---------------------------- Route: Get Doctor by ID ----------------------------
 
+# Define route to retrieve a specific doctor by ID
 @router.get("/{doctor_id}", response_model=DoctorRead)
 async def get_doctor(
-    doctor_id: int,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    doctor_id: int,                             # Doctor's unique identifier from the path
+    token: str = Depends(oauth2_scheme),        # Extract token using OAuth2
+    db: Session = Depends(get_db)               # Inject database session
 ):
     """
     Retrieve a doctor by their ID.
     """
-    try:
-        # Validate token and extract email
-        payload = verify_jwt_token(token)
-        email = payload.get("sub")
+    # Delegate logic to service layer to get doctor by ID
+    return await get_doctor_by_id_service(doctor_id, token, db)
 
-        # Fetch doctor from DB
-        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-
-        # Raise 404 if not found
-        if not doctor:
-            raise HTTPException(status_code=404, detail="Doctor not found")
-
-        # Return doctor
-        return doctor
-    
-    except HTTPException as http_exc:
-        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
-
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Create Doctor (Admin Only) ----------------------------
 
+# Define route to create a new doctor (Admin access required)
 @router.post("/", response_model=DoctorRead, status_code=status.HTTP_201_CREATED)
 async def create_doctor(
-    doctor: DoctorCreate,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    doctor: DoctorCreate,                       # Doctor creation payload validated via Pydantic
+    token: str = Depends(oauth2_scheme),        # Extract token from Authorization header
+    db: Session = Depends(get_db)               # Inject SQLAlchemy session
 ):
     """
     Create a new doctor (Admin only).
     """
-    try:
-        # Validate token and get user role
-        payload = verify_jwt_token(token)
-        email = payload.get("sub")
-        role, _ = determine_user_role_and_id(email, db)
+    # Delegate logic to service layer to create a new doctor
+    return await create_doctor_service(doctor, token, db)
 
-        # Only admins allowed
-        if role != "admin":
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        # Create and persist new doctor
-        new_doctor = Doctor(**doctor.model_dump())
-
-        # Generate and store weekly available slots from available_days
-        new_doctor.weekly_available_slots = generate_all_weekly_slots(
-            new_doctor.available_days,
-            new_doctor.slot_duration
-        )
-
-        db.add(new_doctor)
-        db.commit()
-        db.refresh(new_doctor)
-
-        return new_doctor
-
-    except HTTPException as http_exc:
-        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
-    
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Update Doctor (Admin Only) ----------------------------
 
+# Define route to update doctor details (Admin access required)
 @router.put("/{doctor_id}", response_model=DoctorRead)
 async def update_doctor(
-    doctor_id: int,
-    updated_doctor: DoctorUpdate,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    doctor_id: int,                             # Doctor's unique identifier from the path
+    updated_doctor: DoctorUpdate,              # Updated data validated via Pydantic schema
+    token: str = Depends(oauth2_scheme),        # Extract token from the request
+    db: Session = Depends(get_db)               # Inject database session
 ):
     """
     Update a doctor (Admin only).
     """
-    try:
-        # Validate and authorize
-        payload = verify_jwt_token(token)
-        email = payload.get("sub")
-        role, _ = determine_user_role_and_id(email, db)
+    # Delegate logic to service layer to update doctor information
+    return await update_doctor_service(doctor_id, updated_doctor, token, db)
 
-        if role != "admin":
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        # Fetch doctor
-        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-
-        if not doctor:
-            raise HTTPException(status_code=404, detail="Doctor not found")
-        
-        # Store old values for comparison
-        old_available_days = doctor.available_days
-        old_slot_duration = doctor.slot_duration
-
-        # Apply updates from request payload
-        update_data = updated_doctor.model_dump(exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(doctor, key, value)
-
-        # Regenerate weekly slots if available_days or slot_duration changed
-        if (
-            ("available_days" in update_data and doctor.available_days != old_available_days)
-            or ("slot_duration" in update_data and doctor.slot_duration != old_slot_duration)
-        ):
-            doctor.weekly_available_slots = generate_all_weekly_slots(
-                doctor.available_days,
-                doctor.slot_duration
-            )
-
-        db.commit()
-        db.refresh(doctor)
-        return doctor
-    
-    except HTTPException as http_exc:
-        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
-    
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Delete Doctor (Admin Only) ----------------------------
 
+# Define route to delete a doctor (Admin access required)
 @router.delete("/{doctor_id}", response_model=DoctorDeleteResponse)
 async def delete_doctor(
-    doctor_id: int,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    doctor_id: int,                             # ID of the doctor to delete
+    token: str = Depends(oauth2_scheme),        # Extract token for authorization
+    db: Session = Depends(get_db)               # Inject database session
 ):
     """
     Delete a doctor (Admin only).
     """
-    try:
-        # Authorize user
-        payload = verify_jwt_token(token)
-        email = payload.get("sub")
-        role, _ = determine_user_role_and_id(email, db)
+    # Delegate logic to service layer to delete the doctor
+    return await delete_doctor_service(doctor_id, token, db)
 
-        if role != "admin":
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        # Locate doctor
-        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-
-        if not doctor:
-            raise HTTPException(status_code=404, detail="Doctor not found")
-
-        db.delete(doctor)
-        db.commit()
-
-        return DoctorDeleteResponse(
-            message="Doctor deleted successfully",
-            doctor_id=doctor_id
-        )
-
-    except HTTPException as http_exc:
-        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
-    
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- Route: Get All Doctors ----------------------------
 
+# Define route to retrieve all doctors
 @router.get("/", response_model=list[DoctorRead])
 async def get_all_doctors(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme),        # Extract token to identify requester
+    db: Session = Depends(get_db)               # Inject database session
 ):
     """
     Retrieve all doctors.
     - Admins & patients: see all.
     - Doctors: see only self.
     """
-    try:
-        # Get token info
-        payload = verify_jwt_token(token)
-        email = payload.get("sub")
-        role, user_id = determine_user_role_and_id(email, db)
-
-        # Return all doctors for admin/patient
-        if role in ("admin", "patient"):
-            return db.query(Doctor).all()
-
-        # Return only current doctor for doctors
-        elif role == "doctor":
-            doctor = db.query(Doctor).filter(Doctor.id == user_id).first()
-            if not doctor:
-                raise HTTPException(status_code=404, detail="Doctor not found")
-            return [doctor]
-
-        # Deny others
-        else:
-            raise HTTPException(status_code=403, detail="Unauthorized role")
-
-    except HTTPException as http_exc:
-        raise http_exc  # Let FastAPI propagate original status (e.g., 403, 404)
-
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+    # Delegate logic to service layer to retrieve doctors list
+    return await get_all_doctors_service(token, db)

@@ -35,9 +35,6 @@ from ..models.doctor_model import Doctor
 # Import Patient model
 from ..models.patient_model import Patient
 
-# Utility to determine user role and ID from DB
-from .auth_user_check import determine_user_role_and_id
-
 # ---------------------------- Load Environment Variables ----------------------------
 
 # Load variables from .env
@@ -103,6 +100,44 @@ def verify_jwt_token(token: str):
     except Exception:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Token validation error")
+    
+
+# ---------------------------- Role Determination Logic ----------------------------
+
+def determine_user_role_and_id(email: str, db: Session) -> tuple[str, int]:
+    """
+    Determines the role of the user (admin, doctor, patient) based on their email.
+    If no match is found, a new patient is created.
+
+    Parameters:
+    - email (str): The email address to check.
+    - db (Session): The SQLAlchemy database session.
+
+    Returns:
+    - tuple[str, int]: A tuple containing the role ('admin' | 'doctor' | 'patient') and user ID.
+    """
+    # -------- Step 1: Check if the user is an admin --------
+    admin = db.query(Admin).filter(Admin.email == email).first()
+    if admin:
+        return "admin", admin.id
+
+    # -------- Step 2: Check if the user is a doctor --------
+    doctor = db.query(Doctor).filter(Doctor.email == email).first()
+    if doctor:
+        return "doctor", doctor.id
+
+    # -------- Step 3: Check if the user is a patient --------
+    patient = db.query(Patient).filter(Patient.email == email).first()
+    if not patient:
+        patient = Patient(
+            name=email.split('@')[0],
+            email=email
+        )
+        db.add(patient)
+        db.commit()
+        db.refresh(patient)
+
+    return "patient", patient.id
 
 
 # ---------------------------- Google OAuth2 Authentication ----------------------------

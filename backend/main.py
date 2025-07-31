@@ -37,16 +37,6 @@ from .api.appointment_routes import router as appointment_router
 # Doctor slot availability handlers  
 from .api.doctor_slot_routes import router as doctor_slot_router
 
-# Availability Tool route handlers
-from .mcp.availability_tool_routes import router as availability_tool_router
-
-# MCP Manifest router handlers
-from .mcp.mcp_manifest_routes import router as mcp_manifest_router
-
-# LLM router handlers
-from .llm_integration.llm_routes import router as llm_router
-
-
 # ---------------------------- App Initialization ----------------------------
 
 # Create a FastAPI application instance  
@@ -79,15 +69,6 @@ app.include_router(appointment_router)
 
 # Register patient-specific routes under /patients  
 app.include_router(patient_router)
-
-# Register Availability Tool router under /tools/availability
-app.include_router(availability_tool_router)
-
-# Register MCP Manifest router under /.well-known/ai-plugin.json
-app.include_router(mcp_manifest_router)
-
-# Register LLM router under /llm
-app.include_router(llm_router)
 
 # ---------------------------- Root Route ----------------------------
 
