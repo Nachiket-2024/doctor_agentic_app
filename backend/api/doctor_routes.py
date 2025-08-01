@@ -15,22 +15,22 @@ from fastapi.security import OAuth2PasswordBearer
 from ..schemas.doctor_schema import DoctorCreate, DoctorRead, DoctorUpdate, DoctorDeleteResponse
 
 # Import the function to retrieve a database session via dependency injection
-from ..db.session import get_db
+from ..db.database_session_manager import DatabaseSessionManager
 
 # Import service function to retrieve a doctor by ID
-from ..services.doctor.get_doctor_by_id import get_doctor_by_id_service
+from ..services.doctor.get_doctor_by_id_service import GetDoctorByIdService
 
 # Import service function to create a new doctor
-from ..services.doctor.create_doctor import create_doctor_service
+from ..services.doctor.create_doctor_service import CreateDoctorService
 
 # Import service function to update an existing doctor's details
-from ..services.doctor.update_doctor import update_doctor_service
+from ..services.doctor.update_doctor_service import UpdateDoctorService
 
 # Import service function to delete a doctor
-from ..services.doctor.delete_doctor import delete_doctor_service
+from ..services.doctor.delete_doctor_service import DeleteDoctorService
 
 # Import service function to retrieve all doctors
-from ..services.doctor.get_all_doctors import get_all_doctors_service
+from ..services.doctor.get_all_doctors_service import GetAllDoctorsService
 
 # ---------------------------- Initialization ----------------------------
 
@@ -50,13 +50,13 @@ router = APIRouter(
 async def get_doctor(
     doctor_id: int,                             # Doctor's unique identifier from the path
     token: str = Depends(oauth2_scheme),        # Extract token using OAuth2
-    db: Session = Depends(get_db)               # Inject database session
+    db: Session = Depends(DatabaseSessionManager().get_db)               # Inject database session
 ):
     """
     Retrieve a doctor by their ID.
     """
     # Delegate logic to service layer to get doctor by ID
-    return await get_doctor_by_id_service(doctor_id, token, db)
+    return await GetDoctorByIdService(db).get_doctor_by_id(doctor_id, token)
 
 
 # ---------------------------- Route: Create Doctor (Admin Only) ----------------------------
@@ -66,13 +66,13 @@ async def get_doctor(
 async def create_doctor(
     doctor: DoctorCreate,                       # Doctor creation payload validated via Pydantic
     token: str = Depends(oauth2_scheme),        # Extract token from Authorization header
-    db: Session = Depends(get_db)               # Inject SQLAlchemy session
+    db: Session = Depends(DatabaseSessionManager().get_db)               # Inject SQLAlchemy session
 ):
     """
     Create a new doctor (Admin only).
     """
     # Delegate logic to service layer to create a new doctor
-    return await create_doctor_service(doctor, token, db)
+    return await CreateDoctorService(db).create_doctor(doctor, token)
 
 
 # ---------------------------- Route: Update Doctor (Admin Only) ----------------------------
@@ -83,13 +83,13 @@ async def update_doctor(
     doctor_id: int,                             # Doctor's unique identifier from the path
     updated_doctor: DoctorUpdate,              # Updated data validated via Pydantic schema
     token: str = Depends(oauth2_scheme),        # Extract token from the request
-    db: Session = Depends(get_db)               # Inject database session
+    db: Session = Depends(DatabaseSessionManager().get_db)               # Inject database session
 ):
     """
     Update a doctor (Admin only).
     """
     # Delegate logic to service layer to update doctor information
-    return await update_doctor_service(doctor_id, updated_doctor, token, db)
+    return await UpdateDoctorService(db).update_doctor(doctor_id, updated_doctor, token)
 
 
 # ---------------------------- Route: Delete Doctor (Admin Only) ----------------------------
@@ -99,13 +99,13 @@ async def update_doctor(
 async def delete_doctor(
     doctor_id: int,                             # ID of the doctor to delete
     token: str = Depends(oauth2_scheme),        # Extract token for authorization
-    db: Session = Depends(get_db)               # Inject database session
+    db: Session = Depends(DatabaseSessionManager().get_db)               # Inject database session
 ):
     """
     Delete a doctor (Admin only).
     """
     # Delegate logic to service layer to delete the doctor
-    return await delete_doctor_service(doctor_id, token, db)
+    return await DeleteDoctorService(db).delete_doctor(doctor_id, token)
 
 
 # ---------------------------- Route: Get All Doctors ----------------------------
@@ -114,7 +114,7 @@ async def delete_doctor(
 @router.get("/", response_model=list[DoctorRead])
 async def get_all_doctors(
     token: str = Depends(oauth2_scheme),        # Extract token to identify requester
-    db: Session = Depends(get_db)               # Inject database session
+    db: Session = Depends(DatabaseSessionManager().get_db)               # Inject database session
 ):
     """
     Retrieve all doctors.
@@ -122,4 +122,4 @@ async def get_all_doctors(
     - Doctors: see only self.
     """
     # Delegate logic to service layer to retrieve doctors list
-    return await get_all_doctors_service(token, db)
+    return await GetAllDoctorsService(db).get_all_doctors(token)

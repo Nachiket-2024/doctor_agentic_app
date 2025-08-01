@@ -12,7 +12,7 @@ from fastapi.security import OAuth2PasswordBearer
 # ---------------------------- Internal Imports ----------------------------
 
 # Import database session provider function
-from ..db.session import get_db
+from ..db.database_session_manager import DatabaseSessionManager
 
 # Pydantic schemas for request and response validation
 from ..schemas.patient_schema import (
@@ -23,19 +23,19 @@ from ..schemas.patient_schema import (
 )
 
 # Import the modularized service function to get a patient by ID
-from ..services.patient.get_patient_by_id import get_patient_by_id_service
+from ..services.patient.get_patient_by_id_service import GetPatientByIDService
 
 # Import the modularized service function to create a new patient
-from ..services.patient.create_patient import create_patient_service
+from ..services.patient.create_patient_service import CreatePatientService
 
 # Import the modularized update service function to update patient data
-from ..services.patient.update_patient import update_patient_service
+from ..services.patient.update_patient_service import UpdatePatientService
 
 # Import the modularized delete service function to delete a patient
-from ..services.patient.delete_patient import delete_patient_service
+from ..services.patient.delete_patient_service import DeletePatientService
 
 # Import the modularized service function to fetch all patients
-from ..services.patient.get_all_patients import get_all_patients_service
+from ..services.patient.get_all_patients_service import GetAllPatientsService
 
 # ---------------------------- OAuth2 Setup ----------------------------
 
@@ -57,14 +57,14 @@ router = APIRouter(
 async def get_patient(
     patient_id: int,                                # Patient ID from path
     token: str = Depends(oauth2_scheme),            # Extract token from header
-    db: Session = Depends(get_db)                   # Inject DB session
+    db: Session = Depends(DatabaseSessionManager().get_db)                   # Inject DB session
 ):
     """
     Get a patient's profile by ID.
     Only the patient themselves or an admin can access the data.
     """
     # Call the modular service to handle patient retrieval logic
-    return await get_patient_by_id_service(patient_id, token, db)
+    return await GetPatientByIDService(db).get_patient_by_id(patient_id, token)
 
 
 # ---------------------------- Route: Create Patient ----------------------------
@@ -74,10 +74,10 @@ async def get_patient(
 async def create_patient(
     patient: PatientCreate,                         # Payload for creating patient
     token: str = Depends(oauth2_scheme),            # Extract token from header
-    db: Session = Depends(get_db)                   # Inject DB session
+    db: Session = Depends(DatabaseSessionManager().get_db)                   # Inject DB session
 ):
     # Call the modular service to handle patient creation
-    return await create_patient_service(patient, token, db)
+    return await CreatePatientService(db).create_patient(patient, token)
 
 
 # ---------------------------- Route: Update Patient ----------------------------
@@ -88,10 +88,10 @@ async def update_patient(
     patient_id: int,                                # ID of patient to update
     update_data: PatientUpdate,                     # Update data as Pydantic model
     token: str = Depends(oauth2_scheme),            # Extract token from header
-    db: Session = Depends(get_db)                   # Inject DB session
+    db: Session = Depends(DatabaseSessionManager().get_db)                   # Inject DB session
 ):
     # Call the modular service to handle patient update logic
-    return await update_patient_service(patient_id, update_data, token, db)
+    return await UpdatePatientService(db).update_patient(patient_id, update_data, token)
 
 
 # ---------------------------- Route: Delete Patient ----------------------------
@@ -101,14 +101,14 @@ async def update_patient(
 async def delete_patient(
     patient_id: int,                                # ID of patient to delete
     token: str = Depends(oauth2_scheme),            # Extract token from header
-    db: Session = Depends(get_db)                   # Inject DB session
+    db: Session = Depends(DatabaseSessionManager().get_db)                   # Inject DB session
 ):
     """
     Delete a patient by ID.
     Only accessible to admins.
     """
     # Call the modular service to handle patient deletion
-    return await delete_patient_service(patient_id, token, db)
+    return await DeletePatientService(db).delete_patient(patient_id, token)
 
 
 # ---------------------------- Route: Get All Patients ----------------------------
@@ -117,11 +117,11 @@ async def delete_patient(
 @router.get("/", response_model=list[PatientRead])
 async def get_all_patients(
     token: str = Depends(oauth2_scheme),            # Extract token from header
-    db: Session = Depends(get_db)                   # Inject DB session
+    db: Session = Depends(DatabaseSessionManager().get_db)                   # Inject DB session
 ):
     """
     Get all patient records.
     Admins see all; regular patients see only their own info.
     """
     # Call the modular service to return one or more patients based on role
-    return await get_all_patients_service(token, db)
+    return await GetAllPatientsService(db).get_all_patients(token)

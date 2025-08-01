@@ -9,20 +9,10 @@ from datetime import datetime, timedelta, timezone
 # For handling HTTP exceptions in FastAPI  
 from fastapi import HTTPException  
 
-# For accessing environment variables like GOOGLE_CLIENT_ID and SECRET  
-import os  
-
-# To load .env file variables into the OS environment  
-from dotenv import load_dotenv  
-
-
-# ------------------------------------- Load Environment Variables -------------------------------------
-
-# Load variables from .env into os.environ  
-load_dotenv()
-
-
 # ------------------------------------- Internal Imports -------------------------------------
+
+# Application-wide settings from environment  
+from ..core.settings import settings  
 
 # Import models to access token data directly from respective tables  
 from ..models.admin_model import Admin  
@@ -30,89 +20,105 @@ from ..models.doctor_model import Doctor
 from ..models.patient_model import Patient  
 
 
-# ------------------------------------- Token Refresh Logic -------------------------------------
+# ------------------------------------- Class: GoogleTokenManager -------------------------------------
 
-async def get_valid_google_access_token(user_id: int, role: str, db):
+class GoogleTokenService:
     """
-    Get a valid Google access token (and refresh token) for the given user by role.
-    If expired or about to expire, refresh it using the refresh token.
-    """
-
-    # Determine the user object based on role  
-    if role == "admin":
-        user = db.query(Admin).filter(Admin.id == user_id).first()
-    elif role == "doctor":
-        user = db.query(Doctor).filter(Doctor.id == user_id).first()
-    elif role == "patient":
-        user = db.query(Patient).filter(Patient.id == user_id).first()
-    else:
-        raise HTTPException(status_code=400, detail="Invalid user role.")
-
-    # If user record not found  
-    if not user:
-        print("No user found for provided ID and role.")
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    # Extract token expiry field  
-    token_expiry = user.token_expiry
-
-    # Convert string to datetime  
-    if isinstance(token_expiry, str):
-        token_expiry = datetime.fromisoformat(token_expiry)
-
-    # If token is missing or will expire in next 2 minutes, refresh it  
-    if not token_expiry or token_expiry <= datetime.now(timezone.utc) + timedelta(minutes=2):
-        # Use the refresh token to get a new access token  
-        new_token_data = await refresh_google_access_token(user.refresh_token)
-
-        # If response lacks access token, raise an error  
-        if not new_token_data.get("access_token"):
-            raise HTTPException(status_code=400, detail="Failed to refresh Google access token.")
-
-        # Update access token and token expiry  
-        user.access_token = new_token_data["access_token"]
-        user.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=new_token_data["expires_in"])
-
-        # If refresh token was rotated, update it too  
-        if "refresh_token" in new_token_data:
-            user.refresh_token = new_token_data["refresh_token"]
-
-        # Save changes to DB  
-        db.commit()
-
-    # Return access and refresh tokens for further use  
-    return user.access_token, user.refresh_token
-
-
-# ------------------------------------- Refresh Token Logic -------------------------------------
-
-async def refresh_google_access_token(refresh_token: str):
-    """
-    Exchange a refresh token for a new access token using Google's OAuth2 token endpoint.
+    Handles Google OAuth2 token refresh and access token retrieval based on user role.
     """
 
-    # Define Google's token endpoint URL  
-    token_url = "https://oauth2.googleapis.com/token"
+    # ------------------------ Method: Get Valid Access Token ------------------------
 
-    # Read client ID and client secret from environment  
-    client_id = os.getenv("GOOGLE_CLIENT_ID")
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    @staticmethod
+    async def get_valid_google_access_token(user_id: int, role: str, db):
+        """
+        Get a valid Google access token for the given user by role.
+        If token is expired or near expiry, refresh it using the refresh token.
 
-    # Prepare request payload for the refresh request  
-    payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "refresh_token": refresh_token,
-        "grant_type": "refresh_token",
-    }
+        Parameters:
+        - user_id (int): User ID from the database
+        - role (str): User role (admin/doctor/patient)
+        - db: SQLAlchemy database session
 
-    # Make asynchronous POST request to Google's token endpoint  
-    async with httpx.AsyncClient() as client:
-        response = await client.post(token_url, data=payload)
+        Returns:
+        - tuple[str, str]: (access_token, refresh_token)
+        """
+        # Determine the user object based on role  
+        if role == "admin":
+            user = db.query(Admin).filter(Admin.id == user_id).first()
+        elif role == "doctor":
+            user = db.query(Doctor).filter(Doctor.id == user_id).first()
+        elif role == "patient":
+            user = db.query(Patient).filter(Patient.id == user_id).first()
+        else:
+            raise HTTPException(status_code=400, detail="Invalid user role.")
 
-    # If request fails, raise error with status and reason  
-    if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to refresh token from Google.")
+        # If user record not found  
+        if not user:
+            print("No user found for provided ID and role.")
+            raise HTTPException(status_code=404, detail="User not found.")
 
-    # Return parsed JSON token response  
-    return response.json()
+        # Extract token expiry field  
+        token_expiry = user.token_expiry
+
+        # Convert string to datetime if needed  
+        if isinstance(token_expiry, str):
+            token_expiry = datetime.fromisoformat(token_expiry)
+
+        # If token is missing or about to expire, refresh it  
+        if not token_expiry or token_expiry <= datetime.now(timezone.utc) + timedelta(minutes=2):
+            # Use the refresh token to get a new access token  
+            new_token_data = await GoogleTokenService.refresh_google_access_token(user.refresh_token)
+
+            # If response lacks access token, raise an error  
+            if not new_token_data.get("access_token"):
+                raise HTTPException(status_code=400, detail="Failed to refresh Google access token.")
+
+            # Update access token and token expiry  
+            user.access_token = new_token_data["access_token"]
+            user.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=new_token_data["expires_in"])
+
+            # If refresh token was rotated, update it  
+            if "refresh_token" in new_token_data:
+                user.refresh_token = new_token_data["refresh_token"]
+
+            # Commit changes to DB  
+            db.commit()
+
+        # Return valid access and refresh tokens  
+        return user.access_token, user.refresh_token
+
+    # ------------------------ Method: Refresh Google Token ------------------------
+
+    @staticmethod
+    async def refresh_google_access_token(refresh_token: str) -> dict:
+        """
+        Refresh the Google OAuth2 access token using a refresh token.
+
+        Parameters:
+        - refresh_token (str): User's stored refresh token
+
+        Returns:
+        - dict: Dictionary containing the new access token and possibly new refresh token
+        """
+        # Define Google's token endpoint URL  
+        token_url = "https://oauth2.googleapis.com/token"
+
+        # Prepare request payload  
+        payload = {
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        }
+
+        # Make async POST request  
+        async with httpx.AsyncClient() as client:
+            response = await client.post(token_url, data=payload)
+
+        # Raise error if request failed  
+        if response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to refresh token from Google.")
+
+        # Return the parsed token response  
+        return response.json()

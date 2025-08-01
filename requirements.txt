@@ -1,18 +1,77 @@
+# ---------------------------- Web Framework ----------------------------
+# FastAPI framework for building APIs
 fastapi
+
+# ASGI server for running FastAPI applications
 uvicorn[standard]
+
+
+# ---------------------------- Database & ORM ----------------------------
+# SQLAlchemy ORM for database modeling and queries
 sqlalchemy
+
+# PostgreSQL driver for SQLAlchemy
 psycopg2-binary
-pydantic
-python-dotenv
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
+
+# Database migration tool for SQLAlchemy models
 alembic
+
+
+# ---------------------------- Data Validation & Settings ----------------------------
+# Core data validation and serialization library
+pydantic
+
+# Advanced settings management built on top of Pydantic
 pydantic-settings
-pytest
-httpx
-pytest-cov
-google-auth
-python-jose[cryptography]
-python-json-logger
+
+# Optional Pydantic support for email field types
 pydantic[email]
+
+# Environment variable loading for local development
+python-dotenv
+
+
+# ---------------------------- Authentication & Security ----------------------------
+# JWT handling with support for cryptographic algorithms
+python-jose[cryptography]
+
+# Google authentication and identity tokens
+google-auth
+
+# OAuth 2.0 client helpers for Google APIs
+google-auth-oauthlib
+
+# HTTP transport layer for Google auth flows
+google-auth-httplib2
+
+
+# ---------------------------- Google API Client ----------------------------
+# Core Google API Python client library
+google-api-python-client
+
+
+# ---------------------------- Logging ----------------------------
+# Structured logging support for JSON output
+python-json-logger
+
+
+# ---------------------------- Agentic AI / LLM Integration ----------------------------
+# FastAPI plugin to expose backend functions as tools for LLM agents
+fastapi-mcp
+
+# LangChain framework for building agentic apps with LLMs
+langchain
+
+# LangChain integration for OpenAI-compatible models
+langchain-community
+
+# Core OpenAI-compatible client (used even with Ollama if needed)
+openai
+
+# Optional: HTTP library used internally by LangChain and LLMs
+httpx
+
+
+# ---------------------------- Local LLM (Optional Notes) ----------------------------
+# Ollama is installed separately: https://ollama.com
+# Example command: `ollama run llama3`

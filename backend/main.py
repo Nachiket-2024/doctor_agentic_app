@@ -12,6 +12,9 @@ from fastapi import FastAPI
 # Middleware to handle Cross-Origin Resource Sharing  
 from fastapi.middleware.cors import CORSMiddleware
 
+# FastAPI MCP integration
+from fastapi_mcp import FastApiMCP
+
 # ---------------------------- Environment Setup ----------------------------
 
 # Get the base directory (3 levels up from current file)  
@@ -41,6 +44,12 @@ from .api.doctor_slot_routes import router as doctor_slot_router
 
 # Create a FastAPI application instance  
 app = FastAPI()
+
+# Wrap the app with FastAPI MCP
+mcp = FastApiMCP(app)
+
+# Mount HTTP endpoint at /mcp
+mcp.mount_http()
 
 # ---------------------------- Middleware Configuration ----------------------------
 

@@ -15,22 +15,22 @@ from sqlalchemy.orm import Session
 from ..schemas.appointment_schema import AppointmentCreate, AppointmentUpdate, AppointmentResponse
 
 # Dependency to get DB session from context
-from ..db.session import get_db
+from ..db.database_session_manager import DatabaseSessionManager
 
 # Service function to get appointment by id
-from ..services.appointment.get_appointment_by_id import get_appointment_by_id
+from ..services.appointment.get_appointment_by_id_service import GetAppointmentByIDService
 
 # Service function to create a new appointment
-from ..services.appointment.create_appointment import create_appointment_entry
+from ..services.appointment.create_appointment_service import CreateAppointmentService
 
 # Service function to update an appointment
-from ..services.appointment.update_appointment import update_appointment_entry
+from ..services.appointment.update_appointment_service import UpdateAppointmentService
 
 # Service function to delete an appointment
-from ..services.appointment.delete_appointment import delete_appointment_entry
+from ..services.appointment.delete_appointment_service import DeleteAppointmentService
 
 # Service function to get all appointments
-from ..services.appointment.get_all_appointments import get_all_appointments_entry
+from ..services.appointment.get_all_appointments_service import GetAllAppointmentsService
 
 # ---------------------------- OAuth2 Setup ----------------------------
 
@@ -52,9 +52,9 @@ router = APIRouter(
 async def get_appointment(
     appointment_id: int,
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(DatabaseSessionManager().get_db)
 ):
-    return await get_appointment_by_id(appointment_id, token, db)
+    return await GetAppointmentByIDService(db).get_appointment_by_id(appointment_id, token)
 
 
 # ---------------------------- Route: Create Appointment ----------------------------
@@ -64,9 +64,9 @@ async def get_appointment(
 async def create_appointment(
     appointment: AppointmentCreate,
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(DatabaseSessionManager().get_db)
 ):
-    return await create_appointment_entry(appointment, token, db)
+    return await CreateAppointmentService(db).create_appointment(appointment, token)
 
 
 # ---------------------------- Route: Update Appointment ----------------------------
@@ -77,9 +77,9 @@ async def update_appointment(
     appointment_id: int,
     appointment_update: AppointmentUpdate,
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(DatabaseSessionManager().get_db)
 ):
-    return await update_appointment_entry(appointment_id, appointment_update, token, db)
+    return await UpdateAppointmentService(db).update_appointment(appointment_id, appointment_update, token)
 
 
 # ---------------------------- Route: Delete Appointment ----------------------------
@@ -89,9 +89,9 @@ async def update_appointment(
 async def delete_appointment(
     appointment_id: int,
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(DatabaseSessionManager().get_db)
 ):
-    return await delete_appointment_entry(appointment_id, token, db)
+    return await DeleteAppointmentService(db).delete_appointment(appointment_id, token)
 
 
 # ---------------------------- Route: Get All Appointments ----------------------------
@@ -100,6 +100,6 @@ async def delete_appointment(
 @router.get("/", response_model=list[AppointmentResponse])
 async def get_all_appointments(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(DatabaseSessionManager().get_db)
 ):
-    return await get_all_appointments_entry(token, db)
+    return await GetAllAppointmentsService(db).get_all_appointments(token)
