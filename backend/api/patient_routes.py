@@ -53,7 +53,12 @@ router = APIRouter(
 # ---------------------------- Route: Get Patient by ID ----------------------------
 
 # Define route to retrieve a specific patient's profile by ID
-@router.get("/{patient_id}", response_model=PatientRead)
+@router.get("/{patient_id}", 
+            response_model=PatientRead, 
+            operation_id="get_patient_by_id", 
+            summary="Get Patient by ID"
+            )
+
 async def get_patient(
     patient_id: int,                                # Patient ID from path
     token: str = Depends(oauth2_scheme),            # Extract token from header
@@ -70,7 +75,13 @@ async def get_patient(
 # ---------------------------- Route: Create Patient ----------------------------
 
 # Endpoint to create a new patient profile
-@router.post("/", response_model=PatientRead, status_code=status.HTTP_201_CREATED)
+@router.post("/", 
+             response_model=PatientRead, 
+             status_code=status.HTTP_201_CREATED, 
+             operation_id="create_patient", 
+             summary="Create a New Patient"
+             )
+
 async def create_patient(
     patient: PatientCreate,                         # Payload for creating patient
     token: str = Depends(oauth2_scheme),            # Extract token from header
@@ -83,7 +94,12 @@ async def create_patient(
 # ---------------------------- Route: Update Patient ----------------------------
 
 # Endpoint to update an existing patient's profile
-@router.put("/{patient_id}", response_model=PatientRead)
+@router.put("/{patient_id}", 
+            response_model=PatientRead, 
+            operation_id="update_patient", 
+            summary="Update a Patient"
+            )
+
 async def update_patient(
     patient_id: int,                                # ID of patient to update
     update_data: PatientUpdate,                     # Update data as Pydantic model
@@ -97,7 +113,12 @@ async def update_patient(
 # ---------------------------- Route: Delete Patient ----------------------------
 
 # Endpoint to delete a patient (admin-only access)
-@router.delete("/{patient_id}", response_model=PatientDeleteResponse)
+@router.delete("/{patient_id}", 
+               response_model=PatientDeleteResponse, 
+               operation_id="delete_patient", 
+               summary="Delete a Patient"
+               )
+
 async def delete_patient(
     patient_id: int,                                # ID of patient to delete
     token: str = Depends(oauth2_scheme),            # Extract token from header
@@ -114,7 +135,12 @@ async def delete_patient(
 # ---------------------------- Route: Get All Patients ----------------------------
 
 # Endpoint to retrieve all patients (admin gets all; patient gets only self)
-@router.get("/", response_model=list[PatientRead])
+@router.get("/", 
+            response_model=list[PatientRead], 
+            operation_id="get_all_patients", 
+            summary="Get All Patients"
+            )
+
 async def get_all_patients(
     token: str = Depends(oauth2_scheme),            # Extract token from header
     db: Session = Depends(DatabaseSessionManager().get_db)                   # Inject DB session

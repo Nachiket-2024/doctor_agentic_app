@@ -33,7 +33,11 @@ router = APIRouter(
 # ---------------------------- Route: Get Available Slots ----------------------------
 
 # Define an HTTP GET route to fetch available slots for a doctor on a given date
-@router.get("/{doctor_id}/available-slots")
+@router.get("/{doctor_id}/available-slots", 
+            operation_id="get_available_slots_by_doctor_id", 
+            summary="Get Available Slots by Doctor ID"
+            )
+
 async def get_available_slots(
     doctor_id: int,                                     # Doctor's unique ID passed as a path parameter
     date_str: str = Query(..., description="Date in YYYY-MM-DD"),  # Target date for slot query (required query param)

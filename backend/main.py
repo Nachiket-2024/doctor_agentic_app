@@ -79,6 +79,8 @@ app.include_router(appointment_router)
 # Register patient-specific routes under /patients  
 app.include_router(patient_router)
 
+mcp.setup_server()
+
 # ---------------------------- Root Route ----------------------------
 
 # Define a simple root route to verify the API is running  

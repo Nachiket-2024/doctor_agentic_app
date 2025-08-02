@@ -82,6 +82,41 @@ export default function Dashboard() {
     }
   };
 
+  // --- Test MCP endpoint with current access token ---
+  const handleTestMCP = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      alert("No access token found. Please login first.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:8000/mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "1",
+          method: "list_tools",
+          params: {
+            session_id: "frontend-test-session",
+          },
+        }),
+      });
+
+      const data = await response.json();
+      console.log("MCP Response:", data);
+      alert(`MCP tools fetched:\n${JSON.stringify(data, null, 2)}`);
+    } catch (error) {
+      console.error("MCP Error:", error);
+      alert("Failed to contact MCP endpoint.");
+    }
+  };
+
   // --- Show loading indicator while fetching user info ---
   if (loading) return <p>Loading user info...</p>;
 
@@ -105,6 +140,14 @@ export default function Dashboard() {
         className="mt-6 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
       >
         Logout
+      </button>
+
+      {/* --- MCP Test Button --- */}
+      <button
+        onClick={handleTestMCP}
+        className="mt-4 px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+      >
+        Test MCP Tools Endpoint
       </button>
 
       {/* --- Navigation Buttons --- */}

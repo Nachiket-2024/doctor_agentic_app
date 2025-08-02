@@ -46,7 +46,12 @@ router = APIRouter(
 # ---------------------------- Route: Get Doctor by ID ----------------------------
 
 # Define route to retrieve a specific doctor by ID
-@router.get("/{doctor_id}", response_model=DoctorRead)
+@router.get("/{doctor_id}", 
+            response_model=DoctorRead, 
+            operation_id="get_doctor_by_id", 
+            summary="Get Doctor by ID"
+            )
+
 async def get_doctor(
     doctor_id: int,                             # Doctor's unique identifier from the path
     token: str = Depends(oauth2_scheme),        # Extract token using OAuth2
@@ -62,7 +67,13 @@ async def get_doctor(
 # ---------------------------- Route: Create Doctor (Admin Only) ----------------------------
 
 # Define route to create a new doctor (Admin access required)
-@router.post("/", response_model=DoctorRead, status_code=status.HTTP_201_CREATED)
+@router.post("/", 
+             response_model=DoctorRead, 
+             status_code=status.HTTP_201_CREATED, 
+             operation_id="create_doctor", 
+             summary="Create a New Doctor"
+             )
+
 async def create_doctor(
     doctor: DoctorCreate,                       # Doctor creation payload validated via Pydantic
     token: str = Depends(oauth2_scheme),        # Extract token from Authorization header
@@ -78,7 +89,12 @@ async def create_doctor(
 # ---------------------------- Route: Update Doctor (Admin Only) ----------------------------
 
 # Define route to update doctor details (Admin access required)
-@router.put("/{doctor_id}", response_model=DoctorRead)
+@router.put("/{doctor_id}", 
+            response_model=DoctorRead, 
+            operation_id="update_doctor", 
+            summary="Update a Doctor"
+            )
+
 async def update_doctor(
     doctor_id: int,                             # Doctor's unique identifier from the path
     updated_doctor: DoctorUpdate,              # Updated data validated via Pydantic schema
@@ -95,7 +111,12 @@ async def update_doctor(
 # ---------------------------- Route: Delete Doctor (Admin Only) ----------------------------
 
 # Define route to delete a doctor (Admin access required)
-@router.delete("/{doctor_id}", response_model=DoctorDeleteResponse)
+@router.delete("/{doctor_id}", 
+               response_model=DoctorDeleteResponse, 
+               operation_id="delete_doctor", 
+               summary="Delete a Doctor"
+               )
+
 async def delete_doctor(
     doctor_id: int,                             # ID of the doctor to delete
     token: str = Depends(oauth2_scheme),        # Extract token for authorization
@@ -111,7 +132,12 @@ async def delete_doctor(
 # ---------------------------- Route: Get All Doctors ----------------------------
 
 # Define route to retrieve all doctors
-@router.get("/", response_model=list[DoctorRead])
+@router.get("/", 
+            response_model=list[DoctorRead], 
+            operation_id="get_all_doctors", 
+            summary="Get All Doctors"
+            )
+
 async def get_all_doctors(
     token: str = Depends(oauth2_scheme),        # Extract token to identify requester
     db: Session = Depends(DatabaseSessionManager().get_db)               # Inject database session

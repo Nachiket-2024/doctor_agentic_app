@@ -48,7 +48,12 @@ router = APIRouter(
 # ---------------------------- Route: Get Appointment by ID ----------------------------
 
 # Get a specific appointment based on its ID
-@router.get("/{appointment_id}", response_model=AppointmentResponse)
+@router.get("/{appointment_id}", 
+            response_model=AppointmentResponse, 
+            operation_id="get_appointment_by_id", 
+            summary="Get Appointment by ID"
+            )
+
 async def get_appointment(
     appointment_id: int,
     token: str = Depends(oauth2_scheme),
@@ -60,7 +65,13 @@ async def get_appointment(
 # ---------------------------- Route: Create Appointment ----------------------------
 
 # Endpoint to create a new appointment
-@router.post("/", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", 
+             response_model=AppointmentResponse, 
+             status_code=status.HTTP_201_CREATED, 
+             operation_id="create_appointment",
+             summary="Create a New Appointment"
+             )
+
 async def create_appointment(
     appointment: AppointmentCreate,
     token: str = Depends(oauth2_scheme),
@@ -72,7 +83,12 @@ async def create_appointment(
 # ---------------------------- Route: Update Appointment ----------------------------
 
 # Update an existing appointment and modify Google Calendar if needed
-@router.put("/{appointment_id}", response_model=AppointmentResponse)
+@router.put("/{appointment_id}", 
+            response_model=AppointmentResponse, 
+            operation_id="update_appointment", 
+            summary="Update an Appointment"
+            )
+
 async def update_appointment(
     appointment_id: int,
     appointment_update: AppointmentUpdate,
@@ -85,7 +101,12 @@ async def update_appointment(
 # ---------------------------- Route: Delete Appointment ----------------------------
 
 # Delete an appointment and remove its calendar entry if present
-@router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{appointment_id}", 
+               status_code=status.HTTP_204_NO_CONTENT, 
+               operation_id="delete_appointment", 
+               summary="Delete an Appointment"
+               )
+
 async def delete_appointment(
     appointment_id: int,
     token: str = Depends(oauth2_scheme),
@@ -97,7 +118,12 @@ async def delete_appointment(
 # ---------------------------- Route: Get All Appointments ----------------------------
 
 # Retrieve appointments depending on user role (admin/doctor/patient)
-@router.get("/", response_model=list[AppointmentResponse])
+@router.get("/", 
+            response_model=list[AppointmentResponse], 
+            operation_id="get_all_appointments", 
+            summary="Get All Appointments"
+            )
+
 async def get_all_appointments(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(DatabaseSessionManager().get_db)
