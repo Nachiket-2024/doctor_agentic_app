@@ -43,11 +43,17 @@ class Settings(BaseSettings):
     # Frontend application's redirect URI after authentication completes
     FRONTEND_REDIRECT_URI: str = Field(..., env="FRONTEND_REDIRECT_URI")
 
+    # Backend base URL where FastAPI is running
+    BACKEND_URL: str = Field(..., env="BACKEND_URL")
+
     # Name of the LLM model served by Ollama (e.g., "llama3", "mistral")
     OLLAMA_MODEL: str = Field(..., env="OLLAMA_MODEL")
 
     # Sampling temperature for the LLM, affects randomness of outputs
     OLLAMA_TEMPERATURE: float = Field(..., env="OLLAMA_TEMPERATURE")
+
+    # Ollama Base Url is where Ollama server / llm is running
+    OLLAMA_BASE_URL: str = Field(..., env="OLLAMA_BASE_URL")
 
     # ---------------------------- Config Class ----------------------------
 
