@@ -84,6 +84,14 @@ GOOGLE_TOKEN_FILE=token.json
 
 # Frontend URI
 FRONTEND_REDIRECT_URI=http://localhost:5173/dashboard
+
+# Backend URL
+BACKEND_URL=http://localhost:8000
+
+# Ollama Model Details
+OLLAMA_MODEL=your_ollama_model_here
+OLLAMA_TEMPERATURE=temperature_to_set_here
+OLLAMA_BASE_URL=http://localhost:11434
 ```
 
 ---

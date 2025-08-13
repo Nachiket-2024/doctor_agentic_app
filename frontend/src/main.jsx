@@ -1,58 +1,59 @@
-// --- Import React core ---
+// --- External imports ---
+// React core imports
 import React from "react";
 import ReactDOM from "react-dom/client";
-
-// --- Import React Router for client-side routing ---
+// React Router imports for routing
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
 } from "react-router-dom";
+// Redux imports for providing store
+import { Provider } from "react-redux";
 
-// --- Import your custom page and component files ---
-import ProtectedRoute from "./components/ProtectedRoute";     // Component to guard protected routes
-import Layout from "./components/Layout";                     // Layout wrapper for protected pages
-import LoginPage from "./pages/LoginPage";                    // Public login screen
-import Dashboard from "./pages/DashboardPage";                // Dashboard page shown after login
-import PatientsPage from "./pages/PatientsPage";              // Patient management page
-import DoctorsPage from "./pages/DoctorsPage";                // Doctor management page
-import AppointmentsPage from "./pages/AppointmentsPage";      // Appointment management page
+// --- Internal imports ---
+// Redux store
+import store from "./app/store";
+// App components and pages
+import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./components/Layout";
+import LoginPage from "./pages/LoginPage";
+import Dashboard from "./pages/DashboardPage";
+import PatientPage from "./pages/PatientPage";
+import DoctorPage from "./pages/DoctorPage";
+import AppointmentPage from "./pages/AppointmentPage";
 
-// --- Mount the root React app into the DOM ---
+// --- Mount root React app with Redux Provider and routing ---
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode> {/* Enable additional checks and warnings in development */}
-    <Router> {/* Set up routing with React Router */}
-      <Routes>
-        {/* Public login route (does not require authentication) */}
-        <Route path="/login" element={<LoginPage />} />
+  <React.StrictMode>
+    {/* Provide Redux store to React app */}
+    <Provider store={store}>
+      <Router>
+        <Routes>
+          {/* Public login route */}
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* Layout component wraps protected routes; only accessible when logged in */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute> {/* This checks if user is authenticated */}
-              <Layout />      {/* Layout provides navigation/header/sidebar */}
-            </ProtectedRoute>
-          }
-        >
-          {/* Redirect from "/" to dashboard by default */}
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          {/* Protected routes wrapped by Layout */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            {/* Redirect root to dashboard */}
+            <Route index element={<Navigate to="/dashboard" replace />} />
 
-          {/* Dashboard route (inside protected layout) */}
-          <Route path="dashboard" element={<Dashboard />} />
-
-          {/* Patient management route (inside protected layout) */}
-          <Route path="patients" element={<PatientsPage />} />
-
-          {/* Doctor management route (inside protected layout) */}
-          <Route path="doctors" element={<DoctorsPage />} />
-
-          {/* Appointment management route (inside protected layout) */}
-          <Route path="appointments" element={<AppointmentsPage />} />
-
-        </Route>
-      </Routes>
-    </Router>
+            {/* Protected routes */}
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="patient" element={<PatientPage />} />
+            <Route path="doctor" element={<DoctorPage />} />
+            <Route path="appointment" element={<AppointmentPage />} />
+          </Route>
+        </Routes>
+      </Router>
+    </Provider>
   </React.StrictMode>
 );

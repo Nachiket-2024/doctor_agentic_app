@@ -7,7 +7,7 @@ import httpx
 from ..core.settings import settings
 
 # ---------------------------- Agent Class ----------------------------
-class LLM_Agent:
+class LLM_Client:
     """
     Handles communication with the local Ollama LLM model.
     Designed to be modular so that future model providers can be swapped in easily.
