@@ -1,13 +1,24 @@
-// --- External imports ---
-// MUI components for layout and loading indicator
+// ---------------------------- External Imports ----------------------------
+
+// Import MUI components for grid layout, box container, and loading spinner
 import { Grid, Box, CircularProgress } from "@mui/material";
 
-// --- Internal imports ---
-// AppointmentCard component to display individual appointment info
+
+// ---------------------------- Internal Imports ----------------------------
+
+// Import AppointmentCard component to display individual appointment details
 import AppointmentCard from "./AppointmentCard";
 
-// --- AppointmentList component ---
-// Displays a list of appointment cards or a loader while fetching
+
+// ---------------------------- AppointmentList Component ----------------------------
+
+// Component to display a list of appointments or a loader when fetching
+// Props:
+//   - appointments: array of appointment objects
+//   - loading: boolean indicating if data is being fetched
+//   - isListVisible: boolean to toggle visibility of the list
+//   - onEdit: callback function when an appointment is edited
+//   - onDelete: callback function when an appointment is deleted
 export default function AppointmentList({
     appointments,
     loading,
@@ -17,22 +28,23 @@ export default function AppointmentList({
 }) {
     return (
         <>
-            {/* Loader when fetching appointments */}
+            {/* Display loader centered on the page when loading */}
             {loading && (
                 <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
                     <CircularProgress />
                 </Box>
             )}
 
-            {/* Render grid of appointment cards when visible and not loading */}
+            {/* Render grid of appointment cards when list is visible and not loading */}
             {isListVisible && !loading && (
                 <Grid container spacing={3}>
                     {appointments.map((appt) => (
+                        // Each appointment card is placed in a responsive grid item
                         <Grid item xs={12} sm={6} md={4} key={appt.id}>
                             <AppointmentCard
-                                appointment={appt}
-                                onEdit={onEdit}
-                                onDelete={onDelete}
+                                appointment={appt}   // Pass appointment details
+                                onEdit={onEdit}      // Pass edit callback
+                                onDelete={onDelete}  // Pass delete callback
                             />
                         </Grid>
                     ))}

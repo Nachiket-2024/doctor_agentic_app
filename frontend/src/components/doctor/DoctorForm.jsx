@@ -1,12 +1,21 @@
-// --- External imports ---
-// MUI components for layout, form controls, and typography
+// ---------------------------- External Imports ----------------------------
+
+// Import MUI components for paper container, form layout, text fields, buttons, and stack layout
 import { Paper, Box, Typography, TextField, Button, Stack } from "@mui/material";
 
-// --- Icons ---
+// Import icons for medical services, save, and cancel actions
 import { MedicalServices, Save, Cancel } from "@mui/icons-material";
 
-// --- DoctorForm component ---
-// Controlled form for creating/updating a doctor
+
+// ---------------------------- DoctorForm Component ----------------------------
+
+// Controlled form component for creating or updating a doctor
+// Props:
+//   - name, email, specialization, availableDays, slotDuration: form field values
+//   - editingDoctorId: id of doctor being edited (null if creating)
+//   - onInputChange: callback for input change
+//   - onSubmit: callback for form submission
+//   - onCancel: callback to cancel editing
 export default function DoctorForm({
     name,
     email,
@@ -19,24 +28,26 @@ export default function DoctorForm({
     onCancel,
 }) {
     return (
+        // Paper container for form with padding, border radius, and light background
         <Paper
             elevation={2}
             sx={{
-                p: 2, // padding
-                mb: 3, // bottom margin
-                maxWidth: 400, // compact width like patient form
-                borderRadius: 2,
-                backgroundColor: "#fafafa",
+                p: 2,                   // Padding
+                mb: 3,                  // Bottom margin
+                maxWidth: 400,          // Maximum width
+                borderRadius: 2,        // Rounded corners
+                backgroundColor: "#fafafa", // Light background color
             }}
         >
-            {/* --- Form title --- */}
+            {/* Form title */}
             <Typography variant="subtitle1" fontWeight="bold" mb={1}>
                 {editingDoctorId ? "Edit Doctor" : "Create New Doctor"}
             </Typography>
 
-            {/* --- Form fields --- */}
+            {/* Form element */}
             <Box component="form" onSubmit={onSubmit} noValidate>
                 <Stack spacing={1.5}>
+                    {/* Name input field */}
                     <TextField
                         label="Name"
                         value={name}
@@ -44,9 +55,10 @@ export default function DoctorForm({
                         required
                         fullWidth
                         size="small"
-                        autoFocus={!editingDoctorId}
+                        autoFocus={!editingDoctorId} // Autofocus when creating new doctor
                     />
 
+                    {/* Email input field */}
                     <TextField
                         type="email"
                         label="Email Address"
@@ -57,6 +69,7 @@ export default function DoctorForm({
                         size="small"
                     />
 
+                    {/* Specialization input field */}
                     <TextField
                         label="Specialization"
                         value={specialization}
@@ -65,6 +78,7 @@ export default function DoctorForm({
                         size="small"
                     />
 
+                    {/* Available Days input field */}
                     <TextField
                         label='Available Days (JSON format)'
                         placeholder='{"mon": "9-11", "tue": "10-12"}'
@@ -74,6 +88,7 @@ export default function DoctorForm({
                         size="small"
                     />
 
+                    {/* Slot Duration input field */}
                     <TextField
                         type="number"
                         label="Slot Duration (minutes)"
@@ -81,11 +96,12 @@ export default function DoctorForm({
                         onChange={onInputChange("slotDuration")}
                         fullWidth
                         size="small"
-                        inputProps={{ min: 0 }}
+                        inputProps={{ min: 0 }} // Minimum value constraint
                     />
 
-                    {/* --- Buttons --- */}
+                    {/* Form action buttons */}
                     <Stack direction="row" spacing={1.5} mt={1}>
+                        {/* Submit button */}
                         <Button
                             type="submit"
                             variant="contained"
@@ -96,6 +112,7 @@ export default function DoctorForm({
                             {editingDoctorId ? "Update Doctor" : "Create Doctor"}
                         </Button>
 
+                        {/* Cancel button, shown only when editing */}
                         {editingDoctorId && (
                             <Button
                                 type="button"

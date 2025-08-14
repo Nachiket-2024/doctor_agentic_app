@@ -1,7 +1,12 @@
-// --- External imports ---
+// ---------------------------- External Imports ----------------------------
+
+// Redux Toolkit utilities for creating slices and async actions
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
-// --- Internal imports ---
+
+// ---------------------------- Internal Imports ----------------------------
+
+// Appointment API services
 import {
     getAllAppointments,
     getAppointmentById,
@@ -11,11 +16,14 @@ import {
     getAvailableSlots,
     getAllPatients,
 } from "../services/appointmentService";
-import { getAllDoctors } from "../services/doctorService"; // Doctor API
 
-// --- Async thunks ---
+// Doctor API service
+import { getAllDoctors } from "../services/doctorService";
 
-// Fetch all appointments
+
+// ---------------------------- Async Thunks ----------------------------
+
+// Fetch all appointments from backend
 export const fetchAppointmentAction = createAsyncThunk(
     "appointment/fetchAll",
     async (_, { rejectWithValue }) => {
@@ -28,7 +36,7 @@ export const fetchAppointmentAction = createAsyncThunk(
     }
 );
 
-// Fetch single appointment
+// Fetch a single appointment by ID
 export const fetchSingleAppointmentAction = createAsyncThunk(
     "appointment/fetchOne",
     async (id, { rejectWithValue }) => {
@@ -41,7 +49,7 @@ export const fetchSingleAppointmentAction = createAsyncThunk(
     }
 );
 
-// Create appointment
+// Create a new appointment
 export const createAppointmentAction = createAsyncThunk(
     "appointment/create",
     async (data, { rejectWithValue }) => {
@@ -54,7 +62,7 @@ export const createAppointmentAction = createAsyncThunk(
     }
 );
 
-// Update appointment
+// Update an existing appointment
 export const updateAppointmentAction = createAsyncThunk(
     "appointment/update",
     async ({ id, data }, { rejectWithValue }) => {
@@ -67,7 +75,7 @@ export const updateAppointmentAction = createAsyncThunk(
     }
 );
 
-// Delete appointment
+// Delete an appointment
 export const deleteAppointmentAction = createAsyncThunk(
     "appointment/delete",
     async (id, { rejectWithValue }) => {
@@ -80,7 +88,7 @@ export const deleteAppointmentAction = createAsyncThunk(
     }
 );
 
-// Fetch available slots for a doctor on a date
+// Fetch available slots for a specific doctor on a date
 export const fetchAvailableSlotsAction = createAsyncThunk(
     "appointment/fetchSlots",
     async ({ doctorId, dateStr }, { rejectWithValue }) => {
@@ -119,7 +127,10 @@ export const fetchDoctorsAction = createAsyncThunk(
     }
 );
 
-// --- Initial state ---
+
+// ---------------------------- Initial State ----------------------------
+
+// Initial form state for appointment creation/editing
 const initialFormState = {
     patient_id: "",
     doctor_id: "",
@@ -129,31 +140,39 @@ const initialFormState = {
     editingAppointmentId: null,
 };
 
+// Main initial state for appointment slice
 const initialState = {
-    items: [],
-    loading: false,
-    error: null,
+    items: [],           // List of appointments
+    loading: false,      // Loading state for async operations
+    error: null,         // Error message
     form: initialFormState,
-    availableSlots: [],
-    patients: [],
-    doctors: [],
+    availableSlots: [],  // Slots available for selected doctor/date
+    patients: [],        // List of patients
+    doctors: [],         // List of doctors
 };
 
-// --- Slice definition ---
+
+// ---------------------------- Appointment Slice ----------------------------
+
 const appointmentSlice = createSlice({
     name: "appointment",
     initialState,
     reducers: {
+        // Reset form fields and available slots
         resetAppointmentFormAction(state) {
             state.form = { ...initialFormState };
             state.availableSlots = [];
         },
+
+        // Update single form field
         setAppointmentFormFieldAction(state, action) {
             const { field, value } = action.payload;
             if (field in state.form) {
                 state.form[field] = value;
             }
         },
+
+        // Set form to edit a specific appointment
         setEditingAppointmentAction(state, action) {
             const { id, patient_id, doctor_id, date, start_time } = action.payload;
             state.form = {
@@ -168,7 +187,7 @@ const appointmentSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            // Fetch all appointments
+            // ---------------------------- Fetch All Appointments ----------------------------
             .addCase(fetchAppointmentAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -182,7 +201,7 @@ const appointmentSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // Create appointment
+            // ---------------------------- Create Appointment ----------------------------
             .addCase(createAppointmentAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -196,7 +215,7 @@ const appointmentSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // Update appointment
+            // ---------------------------- Update Appointment ----------------------------
             .addCase(updateAppointmentAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -212,7 +231,7 @@ const appointmentSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // Delete appointment
+            // ---------------------------- Delete Appointment ----------------------------
             .addCase(deleteAppointmentAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -226,35 +245,40 @@ const appointmentSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // Fetch available slots
+            // ---------------------------- Fetch Available Slots ----------------------------
             .addCase(fetchAvailableSlotsAction.fulfilled, (state, action) => {
                 state.availableSlots = action.payload.slots;
             })
 
-            // Fetch patients
+            // ---------------------------- Fetch Patients ----------------------------
             .addCase(fetchPatientsAction.fulfilled, (state, action) => {
                 state.patients = action.payload;
             })
 
-            // Fetch doctors
+            // ---------------------------- Fetch Doctors ----------------------------
             .addCase(fetchDoctorsAction.fulfilled, (state, action) => {
                 state.doctors = action.payload;
             });
     },
 });
 
-// --- Export actions and selectors ---
+
+// ---------------------------- Export Actions and Selectors ----------------------------
+
 export const {
     resetAppointmentFormAction,
     setAppointmentFormFieldAction,
     setEditingAppointmentAction,
 } = appointmentSlice.actions;
 
+// Selectors for components to access state
 export const selectAppointments = (state) => state.appointment.items;
 export const selectLoading = (state) => state.appointment.loading;
 export const selectAvailableSlots = (state) => state.appointment.availableSlots;
 export const selectPatients = (state) => state.appointment.patients;
 export const selectDoctors = (state) => state.appointment.doctors;
 
-// --- Export reducer ---
+
+// ---------------------------- Export Reducer ----------------------------
+
 export default appointmentSlice.reducer;

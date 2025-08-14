@@ -1,9 +1,12 @@
-// --- External imports ---
+// ---------------------------- External Imports ----------------------------
+
 // Redux Toolkit utilities for slice and async thunk creation
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
-// --- Internal imports ---
-// Patient API functions for CRUD operations
+
+// ---------------------------- Internal Imports ----------------------------
+
+// Patient API service functions for CRUD operations
 import {
     getAllPatients,
     createPatient,
@@ -11,8 +14,10 @@ import {
     deletePatient,
 } from "../services/patientService";
 
-// --- Async thunk to fetch all patients ---
-// Fetches the full patients list from the server
+
+// ---------------------------- Async Thunks ----------------------------
+
+// Fetch all patients from API
 export const fetchPatientsAction = createAsyncThunk(
     "patient/fetchAll",
     async (_, { rejectWithValue }) => {
@@ -25,8 +30,7 @@ export const fetchPatientsAction = createAsyncThunk(
     }
 );
 
-// --- Async thunk to create a new patient ---
-// Calls API to add a new patient, returns created patient data
+// Create a new patient
 export const createPatientAction = createAsyncThunk(
     "patient/create",
     async (patientData, { rejectWithValue }) => {
@@ -39,8 +43,7 @@ export const createPatientAction = createAsyncThunk(
     }
 );
 
-// --- Async thunk to update an existing patient ---
-// Calls API to update patient by ID with new data
+// Update existing patient by ID
 export const updatePatientAction = createAsyncThunk(
     "patient/update",
     async ({ id, data }, { rejectWithValue }) => {
@@ -53,22 +56,23 @@ export const updatePatientAction = createAsyncThunk(
     }
 );
 
-// --- Async thunk to delete a patient by ID ---
-// Calls API to delete patient and returns deleted ID
+// Delete patient by ID
 export const deletePatientAction = createAsyncThunk(
     "patient/delete",
     async (id, { rejectWithValue }) => {
         try {
             await deletePatient(id);
-            return id;
+            return id; // return deleted patient ID
         } catch (err) {
             return rejectWithValue(err.response?.data || "Failed to delete patient");
         }
     }
 );
 
-// --- Initial form state ---
-// Holds the controlled input values for patient form
+
+// ---------------------------- Initial State ----------------------------
+
+// Form state for creating/editing a patient
 const initialFormState = {
     name: "",
     email: "",
@@ -78,27 +82,27 @@ const initialFormState = {
     isListVisible: false,
 };
 
-// --- Initial overall state ---
-// Manages list, loading, error, and form state in one slice
+// Overall slice state
 const initialState = {
-    patients: [],
-    loading: false,
-    error: null,
+    patients: [],      // List of patients
+    loading: false,    // Loading indicator for API calls
+    error: null,       // Error messages
     form: initialFormState,
 };
 
-// --- Redux slice ---
-// Contains reducers and async lifecycle handlers for patients
+
+// ---------------------------- Slice Definition ----------------------------
+
 const patientSlice = createSlice({
     name: "patient",
     initialState,
     reducers: {
-        // Reset form to initial empty state
+        // Reset patient form to initial empty state
         resetPatientFormAction(state) {
             state.form = { ...initialFormState };
         },
 
-        // Set a specific form field to a given value
+        // Update a specific form field by name
         setPatientFormFieldAction(state, action) {
             const { field, value } = action.payload;
             if (field in state.form) {
@@ -106,16 +110,9 @@ const patientSlice = createSlice({
             }
         },
 
-        // Populate form fields for editing a patient, and set editing ID
+        // Set form fields for editing an existing patient
         setEditingPatientAction(state, action) {
-            const {
-                id,
-                name,
-                email,
-                age,
-                phoneNumber,
-                isListVisible,
-            } = action.payload;
+            const { id, name, email, age, phoneNumber, isListVisible } = action.payload;
 
             state.form = {
                 editingPatientId: id,
@@ -128,10 +125,10 @@ const patientSlice = createSlice({
         },
     },
 
-    // Handle async thunk lifecycle for fetch, create, update, delete
+    // Handle async thunk lifecycle actions
     extraReducers: (builder) => {
         builder
-            // --- Fetch patients ---
+            // --- Fetch Patients ---
             .addCase(fetchPatientsAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -145,7 +142,7 @@ const patientSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // --- Create patient ---
+            // --- Create Patient ---
             .addCase(createPatientAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -159,7 +156,7 @@ const patientSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // --- Update patient ---
+            // --- Update Patient ---
             .addCase(updatePatientAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -177,7 +174,7 @@ const patientSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // --- Delete patient ---
+            // --- Delete Patient ---
             .addCase(deletePatientAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -193,20 +190,28 @@ const patientSlice = createSlice({
     },
 });
 
-// --- Export slice actions ---
+
+// ---------------------------- Export Actions ----------------------------
+
 export const {
     resetPatientFormAction,
     setPatientFormFieldAction,
     setEditingPatientAction,
 } = patientSlice.actions;
 
-// --- Export selectors ---
-// Get patients list from state
+
+// ---------------------------- Export Selectors ----------------------------
+
+// Get list of patients
 export const selectPatients = (state) => state.patient.patients;
-// Get loading state from state
+
+// Get loading state
 export const selectLoading = (state) => state.patient.loading;
-// Get patient form state from state
+
+// Get patient form state
 export const selectPatientForm = (state) => state.patient.form;
 
-// --- Export reducer as default ---
+
+// ---------------------------- Export Reducer ----------------------------
+
 export default patientSlice.reducer;

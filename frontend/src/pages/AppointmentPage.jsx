@@ -1,23 +1,33 @@
-// --- External imports ---
+// ---------------------------- External Imports ----------------------------
+
 // React hooks for lifecycle, state, and refs
 import { useEffect, useRef, useState } from "react";
+
 // Redux hooks for state and dispatch
 import { useSelector, useDispatch } from "react-redux";
+
 // React Router hook for navigation
 import { useNavigate } from "react-router-dom";
+
 // MUI components for layout and styling
 import { Box, Typography, Button } from "@mui/material";
-// MUI icons for dashboard navigation and appointments list
+
+// MUI icons for dashboard and appointment actions
 import { Dashboard, EventNote } from "@mui/icons-material";
+
 // Toast notifications
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// --- Internal imports ---
+
+// ---------------------------- Internal Imports ----------------------------
+
 // Appointment form component
 import AppointmentForm from "../components/appointment/AppointmentForm";
+
 // Appointment list component
 import AppointmentList from "../components/appointment/AppointmentList";
+
 // Redux actions and selectors for appointments
 import {
     fetchAppointmentAction,
@@ -28,22 +38,27 @@ import {
     selectLoading,
 } from "../features/appointmentSlice";
 
-// --- AppointmentPage component ---
+
+// ---------------------------- AppointmentPage Component ----------------------------
+
 // Main page container managing appointment data and UI composition
 export default function AppointmentPage() {
     // Redux dispatch function
     const dispatch = useDispatch();
-    // React Router navigation
+
+    // React Router navigation hook
     const navigate = useNavigate();
 
-    // Selectors for appointments and loading state
+    // Select appointments list from Redux state
     const appointments = useSelector(selectAppointments);
+
+    // Select loading state from Redux state
     const loading = useSelector(selectLoading);
 
     // Local state for controlling list visibility
     const [isListVisible, setIsListVisible] = useState(false);
 
-    // Ref to avoid multiple fetches in StrictMode
+    // Ref to avoid multiple fetches in React StrictMode
     const hasFetched = useRef(false);
 
     // Fetch appointments on initial mount
@@ -74,7 +89,7 @@ export default function AppointmentPage() {
         }
     };
 
-    // Populate form for editing
+    // Populate form for editing an existing appointment
     const handleEdit = (appointment) => {
         dispatch(
             setEditingAppointmentAction({
@@ -89,7 +104,7 @@ export default function AppointmentPage() {
         setIsListVisible(true);
     };
 
-    // Reset the form
+    // Reset the appointment form
     const handleCancel = () => {
         dispatch(resetAppointmentFormAction());
     };

@@ -1,5 +1,6 @@
-// --- External imports ---
-// MUI components for layout, inputs, and feedback
+// ---------------------------- External Imports ----------------------------
+
+// Import MUI components for layout, text inputs, buttons, menus, progress indicators, and containers
 import {
     Box,
     Typography,
@@ -11,21 +12,23 @@ import {
     Paper
 } from "@mui/material";
 
-// --- Icons ---
+// Import icons for calendar, save, and cancel actions
 import { CalendarMonth, Save, Cancel } from "@mui/icons-material";
 
-// React hooks
+// Import React hooks for state and side effects
 import { useEffect, useState } from "react";
 
-// Redux hooks
+// Import Redux hooks to access store state and dispatch actions
 import { useSelector, useDispatch } from "react-redux";
 
-// Toast notifications
+// Import toast notifications for success/error feedback
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// --- Internal imports ---
-// Appointment Redux actions & selectors
+
+// ---------------------------- Internal Imports ----------------------------
+
+// Import Redux actions and selectors for managing appointments
 import {
     fetchPatientsAction,
     fetchDoctorsAction,
@@ -40,91 +43,121 @@ import {
     selectDoctors,
 } from "../../features/appointmentSlice";
 
-// --- AppointmentForm component ---
+
+// ---------------------------- AppointmentForm Component ----------------------------
+
+// Component for creating or editing an appointment
 export default function AppointmentForm() {
+    // Initialize Redux dispatch function
     const dispatch = useDispatch();
 
-    // --- Redux form state ---
+    // ---------------------------- Redux Form State ----------------------------
+
+    // Destructure form fields and editing state from Redux store
     const { doctor_id, patient_id, date, start_time, reason, editingAppointmentId } =
         useSelector((state) => state.appointment.form);
+
+    // Get global loading state from Redux
     const loading = useSelector(selectLoading);
+
+    // Get patients, doctors, and available slots from Redux
     const patients = useSelector(selectPatients);
     const doctors = useSelector(selectDoctors);
     const availableSlots = useSelector(selectAvailableSlots);
 
-    // --- Local loading state for slots ---
+    // ---------------------------- Local State ----------------------------
+
+    // Local state for loading indicator while fetching available slots
     const [slotsLoading, setSlotsLoading] = useState(false);
 
-    // --- Fetch patients and doctors on mount ---
+    // ---------------------------- Fetch Data on Mount ----------------------------
+
+    // Fetch patients and doctors when component mounts
     useEffect(() => {
+        // Dispatch fetchPatientsAction and handle errors
         dispatch(fetchPatientsAction())
             .unwrap()
             .catch(() => toast.error("Failed to load patients."));
+
+        // Dispatch fetchDoctorsAction and handle errors
         dispatch(fetchDoctorsAction())
             .unwrap()
             .catch(() => toast.error("Failed to load doctors."));
     }, [dispatch]);
 
-    // --- Fetch available slots when doctor or date changes ---
+    // ---------------------------- Fetch Available Slots ----------------------------
+
+    // Fetch available slots whenever doctor or date changes
     useEffect(() => {
         if (doctor_id && date) {
-            setSlotsLoading(true);
+            setSlotsLoading(true); // Show loading indicator
             dispatch(fetchAvailableSlotsAction({ doctorId: doctor_id, dateStr: date }))
                 .unwrap()
                 .catch(() => toast.error("Failed to fetch available slots."))
-                .finally(() => setSlotsLoading(false));
+                .finally(() => setSlotsLoading(false)); // Hide loading indicator
         }
     }, [doctor_id, date, dispatch]);
 
-    // --- Input change handler ---
+    // ---------------------------- Handlers ----------------------------
+
+    // Handle input changes for form fields
     const handleInputChange = (field) => (e) => {
         dispatch(setAppointmentFormFieldAction({ field, value: e.target.value }));
     };
 
-    // --- Form submit handler ---
+    // Handle form submission
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        const payload = { doctor_id, patient_id, date, start_time, reason };
+        e.preventDefault(); // Prevent default form submission
+        const payload = { doctor_id, patient_id, date, start_time, reason }; // Prepare payload
+
         try {
             if (editingAppointmentId) {
+                // Update existing appointment
                 await dispatch(updateAppointmentAction({ id: editingAppointmentId, data: payload })).unwrap();
                 toast.success("Appointment updated successfully.");
             } else {
+                // Create new appointment
                 await dispatch(createAppointmentAction(payload)).unwrap();
                 toast.success("Appointment created successfully.");
             }
+            // Reset form after success
             dispatch(resetAppointmentFormAction());
         } catch {
-            toast.error("Failed to save appointment.");
+            toast.error("Failed to save appointment."); // Show error on failure
         }
     };
 
-    // --- Cancel editing handler ---
+    // Handle cancel action for editing
     const handleCancel = () => {
-        dispatch(resetAppointmentFormAction());
+        dispatch(resetAppointmentFormAction()); // Reset form fields
     };
 
-    // --- Render ---
+    // ---------------------------- Render ----------------------------
+
     return (
+        // Paper container for the form
         <Paper
-            elevation={2}
+            elevation={2} // Slight shadow
             sx={{
-                p: 2,
-                mb: 3,
-                maxWidth: 400,
-                borderRadius: 2,
-                backgroundColor: "#fafafa",
+                p: 2,              // Padding
+                mb: 3,             // Margin bottom
+                maxWidth: 400,     // Max width
+                borderRadius: 2,   // Rounded corners
+                backgroundColor: "#fafafa", // Light background
             }}
         >
+            {/* Toast notifications container */}
             <ToastContainer position="top-right" autoClose={3000} />
 
+            {/* Form title */}
             <Typography variant="subtitle1" fontWeight="bold" mb={1}>
                 {editingAppointmentId ? "Edit Appointment" : "Create New Appointment"}
             </Typography>
 
+            {/* Form element */}
             <Box component="form" onSubmit={handleSubmit} noValidate>
                 <Stack spacing={1.5}>
-                    {/* Patient */}
+                    {/* Patient selection field */}
                     <TextField
                         select
                         label="Patient"
@@ -141,7 +174,7 @@ export default function AppointmentForm() {
                         ))}
                     </TextField>
 
-                    {/* Doctor */}
+                    {/* Doctor selection field */}
                     <TextField
                         select
                         label="Doctor"
@@ -158,7 +191,7 @@ export default function AppointmentForm() {
                         ))}
                     </TextField>
 
-                    {/* Date */}
+                    {/* Date picker field */}
                     <TextField
                         label="Date"
                         type="date"
@@ -170,7 +203,7 @@ export default function AppointmentForm() {
                         InputLabelProps={{ shrink: true }}
                     />
 
-                    {/* Time Slot */}
+                    {/* Time slot selection */}
                     <TextField
                         select
                         label="Time Slot"
@@ -198,7 +231,7 @@ export default function AppointmentForm() {
                         )}
                     </TextField>
 
-                    {/* Reason */}
+                    {/* Reason input (optional) */}
                     <TextField
                         label="Reason (optional)"
                         value={reason}
@@ -207,8 +240,9 @@ export default function AppointmentForm() {
                         size="small"
                     />
 
-                    {/* Buttons */}
+                    {/* Action buttons */}
                     <Stack direction="row" spacing={1.5} mt={1}>
+                        {/* Submit button */}
                         <Button
                             type="submit"
                             variant="contained"
@@ -220,6 +254,7 @@ export default function AppointmentForm() {
                             {editingAppointmentId ? "Update Appointment" : "Book Appointment"}
                         </Button>
 
+                        {/* Cancel button (shown only when editing) */}
                         {editingAppointmentId && (
                             <Button
                                 type="button"

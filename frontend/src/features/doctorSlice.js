@@ -1,9 +1,12 @@
-// --- External imports ---
-// Redux Toolkit for creating slices and async thunks
+// ---------------------------- External Imports ----------------------------
+
+// Redux Toolkit utilities for slices and async thunks
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
-// --- Internal imports ---
-// API service functions for doctor CRUD operations
+
+// ---------------------------- Internal Imports ----------------------------
+
+// Doctor API service functions for CRUD operations
 import {
     getAllDoctors,
     deleteDoctor,
@@ -11,8 +14,10 @@ import {
     updateDoctor,
 } from "../services/doctorService";
 
-// --- Async thunk to fetch all doctors ---
-// Handles async fetching of doctors list
+
+// ---------------------------- Async Thunks ----------------------------
+
+// Fetch all doctors from API
 export const fetchDoctorsAction = createAsyncThunk(
     "doctor/fetchAll",
     async (_, { rejectWithValue }) => {
@@ -25,22 +30,20 @@ export const fetchDoctorsAction = createAsyncThunk(
     }
 );
 
-// --- Async thunk to delete a doctor by ID ---
-// Calls API to delete a doctor and returns deleted ID
+// Delete doctor by ID
 export const deleteDoctorAction = createAsyncThunk(
     "doctor/delete",
     async (id, { rejectWithValue }) => {
         try {
             await deleteDoctor(id);
-            return id;
+            return id; // return deleted doctor ID
         } catch (err) {
             return rejectWithValue(err.response?.data || "Failed to delete doctor");
         }
     }
 );
 
-// --- Async thunk to create a new doctor ---
-// Calls API to create a doctor and returns created doctor data
+// Create a new doctor
 export const createDoctorAction = createAsyncThunk(
     "doctor/create",
     async (doctorData, { rejectWithValue }) => {
@@ -53,8 +56,7 @@ export const createDoctorAction = createAsyncThunk(
     }
 );
 
-// --- Async thunk to update an existing doctor ---
-// Calls API to update doctor by ID with new data
+// Update existing doctor by ID
 export const updateDoctorAction = createAsyncThunk(
     "doctor/update",
     async ({ id, data }, { rejectWithValue }) => {
@@ -67,8 +69,10 @@ export const updateDoctorAction = createAsyncThunk(
     }
 );
 
-// --- Initial form state ---
-// Holds form input values and UI state for doctor form
+
+// ---------------------------- Initial State ----------------------------
+
+// Form state for creating/editing a doctor
 const initialFormState = {
     name: "",
     email: "",
@@ -79,27 +83,27 @@ const initialFormState = {
     isListVisible: false,
 };
 
-// --- Initial overall state ---
-// Manages list, loading, error, and form state in one slice
+// Overall slice state
 const initialState = {
-    doctors: [],
-    loading: false,
-    error: null,
+    doctors: [],       // List of doctors
+    loading: false,    // Loading indicator for API calls
+    error: null,       // Error messages
     form: initialFormState,
 };
 
-// --- Redux slice definition ---
-// Includes reducers and extraReducers to handle async actions lifecycle
+
+// ---------------------------- Slice Definition ----------------------------
+
 const doctorSlice = createSlice({
     name: "doctor",
     initialState,
     reducers: {
-        // Reset form fields to initial empty state
+        // Reset form to initial empty state
         resetDoctorFormAction(state) {
             state.form = { ...initialFormState };
         },
 
-        // Set form field value by field name and value
+        // Update a specific form field
         setDoctorFormFieldAction(state, action) {
             const { field, value } = action.payload;
             if (field in state.form) {
@@ -107,7 +111,7 @@ const doctorSlice = createSlice({
             }
         },
 
-        // Populate form fields for editing a doctor and set editing ID
+        // Set form for editing a doctor
         setEditingDoctorAction(state, action) {
             const {
                 id,
@@ -131,10 +135,10 @@ const doctorSlice = createSlice({
         },
     },
 
-    // Handle pending, fulfilled, and rejected states of async thunks
+    // Handle async thunk lifecycle actions
     extraReducers: (builder) => {
         builder
-            // --- Fetch doctors ---
+            // --- Fetch Doctors ---
             .addCase(fetchDoctorsAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -148,7 +152,7 @@ const doctorSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // --- Delete doctor ---
+            // --- Delete Doctor ---
             .addCase(deleteDoctorAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -162,7 +166,7 @@ const doctorSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // --- Create doctor ---
+            // --- Create Doctor ---
             .addCase(createDoctorAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -176,7 +180,7 @@ const doctorSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // --- Update doctor ---
+            // --- Update Doctor ---
             .addCase(updateDoctorAction.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -196,18 +200,25 @@ const doctorSlice = createSlice({
     },
 });
 
-// --- Export slice actions ---
+
+// ---------------------------- Export Actions ----------------------------
+
 export const {
     resetDoctorFormAction,
     setDoctorFormFieldAction,
     setEditingDoctorAction,
 } = doctorSlice.actions;
 
-// --- Export selectors ---
-// Select doctors list from state
+
+// ---------------------------- Export Selectors ----------------------------
+
+// Get doctors array from state
 export const selectDoctors = (state) => state.doctor.doctors;
-// Select loading status from state
+
+// Get loading status from state
 export const selectLoading = (state) => state.doctor.loading;
 
-// --- Export reducer as default ---
+
+// ---------------------------- Export Reducer ----------------------------
+
 export default doctorSlice.reducer;

@@ -15,6 +15,8 @@ import { Provider } from "react-redux";
 // --- Internal imports ---
 // Redux store
 import store from "./app/store";
+// Auth action to check token at startup
+import { checkAuthState } from "./features/authSlice";
 // App components and pages
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -24,6 +26,9 @@ import PatientPage from "./pages/PatientPage";
 import DoctorPage from "./pages/DoctorPage";
 import AppointmentPage from "./pages/AppointmentPage";
 
+// --- Run initial auth check before rendering the app ---
+store.dispatch(checkAuthState());
+
 // --- Mount root React app with Redux Provider and routing ---
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -32,7 +37,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <Router>
         <Routes>
           {/* Public login route */}
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<Layout><LoginPage /></Layout>} />
 
           {/* Protected routes wrapped by Layout */}
           <Route

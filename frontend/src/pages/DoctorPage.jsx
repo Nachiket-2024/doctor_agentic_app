@@ -1,23 +1,33 @@
-// --- External imports ---
-// React hooks for lifecycle and refs
+// ---------------------------- External Imports ----------------------------
+
+// React hooks for lifecycle, state, and refs
 import { useEffect, useRef } from "react";
+
 // Redux hooks for state and dispatch
 import { useSelector, useDispatch } from "react-redux";
+
 // React Router hook for navigation
 import { useNavigate } from "react-router-dom";
+
 // MUI components for layout and UI
 import { Box, Typography, Button } from "@mui/material";
+
 // MUI icons
 import { Dashboard, People } from "@mui/icons-material";
+
 // Toast notifications
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// --- Internal imports ---
+
+// ---------------------------- Internal Imports ----------------------------
+
 // Doctor form component
 import DoctorForm from "../components/doctor/DoctorForm";
+
 // Doctor list component
 import DoctorList from "../components/doctor/DoctorList";
+
 // Redux actions and selectors for doctors
 import {
     fetchDoctorsAction,
@@ -31,22 +41,25 @@ import {
     setDoctorFormFieldAction,
 } from "../features/doctorSlice";
 
-// --- DoctorPage component ---
+
+// ---------------------------- DoctorPage Component ----------------------------
+
 export default function DoctorPage() {
-    // --- Redux selectors ---
+    // ---------------------------- Redux selectors ----------------------------
+    // Get list of doctors and loading state from Redux store
     const doctors = useSelector(selectDoctors);
     const loading = useSelector(selectLoading);
 
-    // --- Redux dispatch ---
+    // ---------------------------- Redux dispatch ----------------------------
     const dispatch = useDispatch();
 
-    // --- Navigation hook ---
+    // ---------------------------- Navigation hook ----------------------------
     const navigate = useNavigate();
 
-    // --- Ref to avoid double fetch on StrictMode ---
+    // ---------------------------- Ref to prevent double fetch ----------------------------
     const hasFetched = useRef(false);
 
-    // --- Form state from Redux store ---
+    // ---------------------------- Form state from Redux ----------------------------
     const {
         name,
         email,
@@ -57,7 +70,7 @@ export default function DoctorPage() {
         isListVisible,
     } = useSelector((state) => state.doctor.form);
 
-    // --- Fetch doctors once on mount ---
+    // ---------------------------- Fetch doctors on mount ----------------------------
     useEffect(() => {
         if (hasFetched.current) return;
         hasFetched.current = true;
@@ -68,7 +81,8 @@ export default function DoctorPage() {
             .catch(() => toast.error("Failed to fetch doctors."));
     }, [dispatch]);
 
-    // --- Delete handler ---
+    // ---------------------------- Delete handler ----------------------------
+    // Deletes doctor by ID after user confirmation
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this doctor?")) return;
 
@@ -80,7 +94,8 @@ export default function DoctorPage() {
         }
     };
 
-    // --- Submit handler for create/update ---
+    // ---------------------------- Submit handler ----------------------------
+    // Handles create/update of doctor
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -121,7 +136,8 @@ export default function DoctorPage() {
         }
     };
 
-    // --- Edit handler populates form ---
+    // ---------------------------- Edit handler ----------------------------
+    // Populates form for editing doctor
     const handleEdit = (doctor) => {
         dispatch(
             setEditingDoctorAction({
@@ -136,24 +152,26 @@ export default function DoctorPage() {
         );
     };
 
-    // --- Input change handler ---
+    // ---------------------------- Input change handler ----------------------------
+    // Updates form field in Redux store
     const handleInputChange = (field) => (e) => {
         dispatch(setDoctorFormFieldAction({ field, value: e.target.value }));
     };
 
-    // --- Cancel editing handler ---
+    // ---------------------------- Cancel editing handler ----------------------------
     const handleCancel = () => {
         dispatch(resetDoctorFormAction());
     };
 
-    // --- Toggle list visibility ---
+    // ---------------------------- Toggle list visibility ----------------------------
     const toggleListVisibility = () => {
         dispatch(setDoctorFormFieldAction({ field: "isListVisible", value: !isListVisible }));
     };
 
-    // --- Render ---
+    // ---------------------------- Render ----------------------------
     return (
         <Box sx={{ p: 4, backgroundColor: "#f8fafc", minHeight: "100vh" }}>
+            {/* Toast notifications */}
             <ToastContainer position="top-right" autoClose={3000} />
 
             {/* Page title */}

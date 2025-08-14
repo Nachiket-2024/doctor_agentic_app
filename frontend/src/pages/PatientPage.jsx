@@ -1,21 +1,29 @@
-// --- External imports ---
-// React hooks and Redux hooks
+// ---------------------------- External Imports ----------------------------
+
+// React hooks for lifecycle and refs
 import { useEffect, useRef } from "react";
+
+// Redux hooks for state and dispatch
 import { useSelector, useDispatch } from "react-redux";
+
+// React Router hook for navigation
 import { useNavigate } from "react-router-dom";
 
-// --- MUI components ---
+// MUI components for layout and UI
 import { Box, Typography, Button } from "@mui/material";
 import { Dashboard, People } from "@mui/icons-material";
 
-// --- Toast notifications ---
+// Toast notifications
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// --- Internal imports ---
-// PatientForm component for create/update form
+
+// ---------------------------- Internal Imports ----------------------------
+
+// PatientForm component for create/update operations
 import PatientForm from "../components/patient/PatientForm";
-// PatientList component for showing patients list and toggle
+
+// PatientList component for displaying patients and toggling visibility
 import PatientList from "../components/patient/PatientList";
 
 // Redux slice actions and selectors
@@ -32,24 +40,24 @@ import {
     selectPatientForm,
 } from "../features/patientSlice";
 
-// --- PatientsPage component ---
-// Main page container managing patient data and UI composition
+
+// ---------------------------- PatientsPage Component ----------------------------
 export default function PatientPage() {
-    // Selectors for patients data, loading, and form state from Redux store
+    // ---------------------------- Redux selectors ----------------------------
     const patients = useSelector(selectPatients);
     const loading = useSelector(selectLoading);
     const form = useSelector(selectPatientForm);
 
-    // Redux dispatch function
+    // ---------------------------- Redux dispatch ----------------------------
     const dispatch = useDispatch();
 
-    // React Router navigation
+    // ---------------------------- Navigation hook ----------------------------
     const navigate = useNavigate();
 
-    // Ref to avoid multiple fetches in StrictMode
+    // ---------------------------- Ref to avoid double fetch ----------------------------
     const hasFetched = useRef(false);
 
-    // Fetch patients once on mount
+    // ---------------------------- Fetch patients once on mount ----------------------------
     useEffect(() => {
         if (hasFetched.current) return;
         hasFetched.current = true;
@@ -60,7 +68,7 @@ export default function PatientPage() {
             .catch(() => toast.error("Could not load patients."));
     }, [dispatch]);
 
-    // Submit handler to create or update patient
+    // ---------------------------- Form submit handler ----------------------------
     const handleFormSubmit = async (payload) => {
         try {
             if (form.editingPatientId) {
@@ -78,7 +86,7 @@ export default function PatientPage() {
         }
     };
 
-    // Handler to populate form with selected patient for editing
+    // ---------------------------- Edit handler ----------------------------
     const handleEdit = (patient) => {
         dispatch(
             setEditingPatientAction({
@@ -92,7 +100,7 @@ export default function PatientPage() {
         );
     };
 
-    // Handler to delete patient by ID
+    // ---------------------------- Delete handler ----------------------------
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this patient?")) return;
 
@@ -104,12 +112,12 @@ export default function PatientPage() {
         }
     };
 
-    // Reset the form (cancel editing)
+    // ---------------------------- Reset/cancel form handler ----------------------------
     const resetForm = () => {
         dispatch(resetPatientFormAction());
     };
 
-    // Toggle the visibility of the patient list
+    // ---------------------------- Toggle patients list visibility ----------------------------
     const toggleList = () => {
         dispatch(
             setPatientFormFieldAction({
@@ -119,9 +127,10 @@ export default function PatientPage() {
         );
     };
 
-    // Render the full page UI
+    // ---------------------------- Render ----------------------------
     return (
         <Box sx={{ p: 4, backgroundColor: "#f8fafc", minHeight: "100vh" }}>
+            {/* Toast notifications */}
             <ToastContainer position="top-right" autoClose={3000} />
 
             {/* Page title */}
@@ -129,7 +138,7 @@ export default function PatientPage() {
                 Patients
             </Typography>
 
-            {/* Patient form for create/update */}
+            {/* Patient form */}
             <Box sx={{ mb: 4 }}>
                 <PatientForm
                     onSubmit={handleFormSubmit}
@@ -153,7 +162,7 @@ export default function PatientPage() {
                 </Button>
             </Box>
 
-            {/* Patient list component */}
+            {/* Patients list */}
             <PatientList
                 patients={patients}
                 loading={loading}
