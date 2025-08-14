@@ -10,8 +10,11 @@ The **Doctor Agentic App** is a full-stack application for doctor appointment sc
 
 ## Tech Stack
 
-- **Backend**: Python ,FastAPI, SQLAlchemy, PostgreSQL 
+- **Backend**: Python ,FastAPI, SQLAlchemy 
 - **Frontend**: React, TailwindCSS
+- **Database**: PostgreSQL
+- **Model Context Protocol (MCP)**: FastAPI-MCP
+- **LLM**: Ollama (Locally hosted)
 - **Other**: Pydantic, Requests, Google APIs (Calendar, Gmail)
 
 ---
@@ -80,7 +83,6 @@ GOOGLE_CLIENT_ID=google_client_id_here
 GOOGLE_CLIENT_SECRET=your_client_secret_here
 GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
 GOOGLE_SCOPES=openid,email,profile,https://www.googleapis.com/auth/calendar,https://www.googleapis.com/auth/gmail.send
-GOOGLE_TOKEN_FILE=token.json
 
 # Frontend URI
 FRONTEND_REDIRECT_URI=http://localhost:5173/dashboard

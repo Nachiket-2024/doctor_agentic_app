@@ -37,9 +37,6 @@ class Settings(BaseSettings):
     # Scopes requested during Google OAuth2 flow, typically space-separated
     GOOGLE_SCOPES: str = Field(..., env="GOOGLE_SCOPES")
 
-    # Path to the local token file where Google access tokens are stored
-    GOOGLE_TOKEN_FILE: str = Field(..., env="GOOGLE_TOKEN_FILE")
-
     # Frontend application's redirect URI after authentication completes
     FRONTEND_REDIRECT_URI: str = Field(..., env="FRONTEND_REDIRECT_URI")
 
