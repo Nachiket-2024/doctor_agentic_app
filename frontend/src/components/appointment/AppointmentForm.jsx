@@ -25,7 +25,6 @@ import { useSelector, useDispatch } from "react-redux";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-
 // ---------------------------- Internal Imports ----------------------------
 
 // Import Redux actions and selectors for managing appointments
@@ -43,49 +42,35 @@ import {
     selectDoctors,
 } from "../../features/appointmentSlice";
 
-
 // ---------------------------- AppointmentForm Component ----------------------------
 
 // Component for creating or editing an appointment
 export default function AppointmentForm() {
-    // Initialize Redux dispatch function
     const dispatch = useDispatch();
 
     // ---------------------------- Redux Form State ----------------------------
-
-    // Destructure form fields and editing state from Redux store
     const { doctor_id, patient_id, date, start_time, reason, editingAppointmentId } =
         useSelector((state) => state.appointment.form);
 
-    // Get global loading state from Redux
     const loading = useSelector(selectLoading);
-
-    // Get patients, doctors, and available slots from Redux
     const patients = useSelector(selectPatients);
     const doctors = useSelector(selectDoctors);
     const availableSlots = useSelector(selectAvailableSlots);
 
     // ---------------------------- Local State ----------------------------
-
-    // Local state for loading indicator while fetching available slots
     const [slotsLoading, setSlotsLoading] = useState(false);
 
     // ---------------------------- Fetch Data on Mount ----------------------------
-
-    // Fetch patients and doctors when component mounts
     useEffect(() => {
         dispatch(fetchPatientsAction())
             .unwrap()
             .catch(() => toast.error("Failed to load patients."));
-
         dispatch(fetchDoctorsAction())
             .unwrap()
             .catch(() => toast.error("Failed to load doctors."));
     }, [dispatch]);
 
     // ---------------------------- Fetch Available Slots ----------------------------
-
-    // Fetch available slots whenever doctor or date changes
     useEffect(() => {
         if (doctor_id && date) {
             setSlotsLoading(true);
@@ -97,17 +82,14 @@ export default function AppointmentForm() {
     }, [doctor_id, date, dispatch]);
 
     // ---------------------------- Handlers ----------------------------
-
-    // Handle input changes for form fields
     const handleInputChange = (field) => (e) => {
         dispatch(setAppointmentFormFieldAction({ field, value: e.target.value }));
     };
 
-    // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
+        // Only send start_time; backend calculates end_time
         const payload = { doctor_id, patient_id, date, start_time, reason };
-
         try {
             if (editingAppointmentId) {
                 await dispatch(updateAppointmentAction({ id: editingAppointmentId, data: payload })).unwrap();
@@ -122,23 +104,15 @@ export default function AppointmentForm() {
         }
     };
 
-    // Handle cancel action for editing
     const handleCancel = () => {
         dispatch(resetAppointmentFormAction());
     };
 
     // ---------------------------- Render ----------------------------
-
     return (
         <Paper
             elevation={2}
-            sx={{
-                p: 2,
-                mb: 3,
-                maxWidth: 400,
-                borderRadius: 2,
-                backgroundColor: "#fafafa",
-            }}
+            sx={{ p: 2, mb: 3, maxWidth: 400, borderRadius: 2, backgroundColor: "#fafafa" }}
         >
             <ToastContainer position="top-right" autoClose={3000} />
 
@@ -159,9 +133,7 @@ export default function AppointmentForm() {
                         required
                     >
                         {patients.map((p) => (
-                            <MenuItem key={p.id} value={p.id}>
-                                {p.name}
-                            </MenuItem>
+                            <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
                         ))}
                     </TextField>
 
@@ -176,9 +148,7 @@ export default function AppointmentForm() {
                         required
                     >
                         {doctors.map((d) => (
-                            <MenuItem key={d.id} value={d.id}>
-                                {d.name}
-                            </MenuItem>
+                            <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
                         ))}
                     </TextField>
 
@@ -197,7 +167,7 @@ export default function AppointmentForm() {
                         }}
                     />
 
-                    {/* Time slot selection */}
+                    {/* Time slot selection (start_time) */}
                     <TextField
                         select
                         label="Time Slot"
@@ -214,14 +184,12 @@ export default function AppointmentForm() {
                                     Loading...
                                 </Box>
                             </MenuItem>
-                        ) : availableSlots.length > 0 ? (
-                            availableSlots.map((slot, idx) => (
+                        ) : (
+                            [...new Set([start_time, ...availableSlots])].map((slot, idx) => (
                                 <MenuItem key={idx} value={slot}>
-                                    {slot}
+                                    {slot} {/* Slot shown in HH:MM:SS */}
                                 </MenuItem>
                             ))
-                        ) : (
-                            <MenuItem disabled>No slots available</MenuItem>
                         )}
                     </TextField>
 

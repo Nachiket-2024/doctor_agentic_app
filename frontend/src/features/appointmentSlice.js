@@ -67,8 +67,8 @@ export const updateAppointmentAction = createAsyncThunk(
     "appointment/update",
     async ({ id, data }, { rejectWithValue }) => {
         try {
-            await updateAppointment(id, data);
-            return { id, data };
+            const response = await updateAppointment(id, data); // backend returns full updated appointment
+            return response.data; // includes backend-calculated end_time
         } catch (err) {
             return rejectWithValue(err.response?.data || "Failed to update appointment");
         }
@@ -174,14 +174,20 @@ const appointmentSlice = createSlice({
 
         // Set form to edit a specific appointment
         setEditingAppointmentAction(state, action) {
-            const { id, patient_id, doctor_id, date, start_time } = action.payload;
+            let startTime = action.payload.start_time || "";
+
+            if (startTime && startTime.includes(":")) {
+                startTime = startTime.slice(0, 5);
+            }
+
             state.form = {
-                editingAppointmentId: id,
-                patient_id,
-                doctor_id,
-                date,
-                start_time,
-                reason: "",
+                editingAppointmentId: action.payload.id,
+                patient_id: action.payload.patient_id || "",
+                doctor_id: action.payload.doctor_id || "",
+                date: action.payload.date || "",
+                start_time: startTime, // show HH:MM in form
+                end_time: action.payload.end_time || "", // include backend-calculated end_time
+                reason: action.payload.reason || "",
             };
         },
     },
@@ -222,9 +228,9 @@ const appointmentSlice = createSlice({
             })
             .addCase(updateAppointmentAction.fulfilled, (state, action) => {
                 state.loading = false;
-                const { id, data } = action.payload;
-                const index = state.items.findIndex((a) => a.id === id);
-                if (index !== -1) state.items[index] = { ...state.items[index], ...data };
+                const updatedAppointment = action.payload; // backend returns full appointment object
+                const index = state.items.findIndex((a) => a.id === updatedAppointment.id);
+                if (index !== -1) state.items[index] = updatedAppointment; // ✅ includes updated end_time
             })
             .addCase(updateAppointmentAction.rejected, (state, action) => {
                 state.loading = false;

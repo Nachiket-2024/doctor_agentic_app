@@ -19,7 +19,6 @@ import { Dashboard, EventNote } from "@mui/icons-material";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-
 // ---------------------------- Internal Imports ----------------------------
 
 // Appointment form component
@@ -37,7 +36,6 @@ import {
     selectAppointments,
     selectLoading,
 } from "../features/appointmentSlice";
-
 
 // ---------------------------- AppointmentPage Component ----------------------------
 
@@ -89,18 +87,11 @@ export default function AppointmentPage() {
         }
     };
 
+    // ---------------------------- Corrected handleEdit ----------------------------
     // Populate form for editing an existing appointment
     const handleEdit = (appointment) => {
-        dispatch(
-            setEditingAppointmentAction({
-                id: appointment.id,
-                patientId: appointment.patient_id,
-                doctorId: appointment.doctor_id,
-                date: appointment.date,
-                slot: appointment.slot,
-                isListVisible: true,
-            })
-        );
+        // Pass the raw appointment object directly to the slice
+        dispatch(setEditingAppointmentAction(appointment));
         setIsListVisible(true);
     };
 
