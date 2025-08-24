@@ -67,7 +67,7 @@ export default function AppointmentCard({ appointment, onEdit, onDelete }) {
 
                 {/* Display appointment slot */}
                 <Typography variant="body2" color="text.secondary">
-                    Slot: {appointment.slot}
+                    Slot: {appointment.start_time} {appointment.end_time ? `- ${appointment.end_time}` : ""}
                 </Typography>
             </CardContent>
 

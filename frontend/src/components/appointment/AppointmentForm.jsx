@@ -74,12 +74,10 @@ export default function AppointmentForm() {
 
     // Fetch patients and doctors when component mounts
     useEffect(() => {
-        // Dispatch fetchPatientsAction and handle errors
         dispatch(fetchPatientsAction())
             .unwrap()
             .catch(() => toast.error("Failed to load patients."));
 
-        // Dispatch fetchDoctorsAction and handle errors
         dispatch(fetchDoctorsAction())
             .unwrap()
             .catch(() => toast.error("Failed to load doctors."));
@@ -90,11 +88,11 @@ export default function AppointmentForm() {
     // Fetch available slots whenever doctor or date changes
     useEffect(() => {
         if (doctor_id && date) {
-            setSlotsLoading(true); // Show loading indicator
+            setSlotsLoading(true);
             dispatch(fetchAvailableSlotsAction({ doctorId: doctor_id, dateStr: date }))
                 .unwrap()
                 .catch(() => toast.error("Failed to fetch available slots."))
-                .finally(() => setSlotsLoading(false)); // Hide loading indicator
+                .finally(() => setSlotsLoading(false));
         }
     }, [doctor_id, date, dispatch]);
 
@@ -107,54 +105,47 @@ export default function AppointmentForm() {
 
     // Handle form submission
     const handleSubmit = async (e) => {
-        e.preventDefault(); // Prevent default form submission
-        const payload = { doctor_id, patient_id, date, start_time, reason }; // Prepare payload
+        e.preventDefault();
+        const payload = { doctor_id, patient_id, date, start_time, reason };
 
         try {
             if (editingAppointmentId) {
-                // Update existing appointment
                 await dispatch(updateAppointmentAction({ id: editingAppointmentId, data: payload })).unwrap();
                 toast.success("Appointment updated successfully.");
             } else {
-                // Create new appointment
                 await dispatch(createAppointmentAction(payload)).unwrap();
                 toast.success("Appointment created successfully.");
             }
-            // Reset form after success
             dispatch(resetAppointmentFormAction());
         } catch {
-            toast.error("Failed to save appointment."); // Show error on failure
+            toast.error("Failed to save appointment.");
         }
     };
 
     // Handle cancel action for editing
     const handleCancel = () => {
-        dispatch(resetAppointmentFormAction()); // Reset form fields
+        dispatch(resetAppointmentFormAction());
     };
 
     // ---------------------------- Render ----------------------------
 
     return (
-        // Paper container for the form
         <Paper
-            elevation={2} // Slight shadow
+            elevation={2}
             sx={{
-                p: 2,              // Padding
-                mb: 3,             // Margin bottom
-                maxWidth: 400,     // Max width
-                borderRadius: 2,   // Rounded corners
-                backgroundColor: "#fafafa", // Light background
+                p: 2,
+                mb: 3,
+                maxWidth: 400,
+                borderRadius: 2,
+                backgroundColor: "#fafafa",
             }}
         >
-            {/* Toast notifications container */}
             <ToastContainer position="top-right" autoClose={3000} />
 
-            {/* Form title */}
             <Typography variant="subtitle1" fontWeight="bold" mb={1}>
                 {editingAppointmentId ? "Edit Appointment" : "Create New Appointment"}
             </Typography>
 
-            {/* Form element */}
             <Box component="form" onSubmit={handleSubmit} noValidate>
                 <Stack spacing={1.5}>
                     {/* Patient selection field */}
@@ -200,7 +191,10 @@ export default function AppointmentForm() {
                         fullWidth
                         size="small"
                         required
-                        InputLabelProps={{ shrink: true }}
+                        slotProps={{
+                            inputLabel: { shrink: true },
+                            htmlInput: { min: new Date().toISOString().split("T")[0] },
+                        }}
                     />
 
                     {/* Time slot selection */}
@@ -242,7 +236,6 @@ export default function AppointmentForm() {
 
                     {/* Action buttons */}
                     <Stack direction="row" spacing={1.5} mt={1}>
-                        {/* Submit button */}
                         <Button
                             type="submit"
                             variant="contained"
@@ -254,7 +247,6 @@ export default function AppointmentForm() {
                             {editingAppointmentId ? "Update Appointment" : "Book Appointment"}
                         </Button>
 
-                        {/* Cancel button (shown only when editing) */}
                         {editingAppointmentId && (
                             <Button
                                 type="button"
