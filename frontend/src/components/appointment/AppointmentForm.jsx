@@ -178,6 +178,7 @@ export default function AppointmentForm() {
                         required
                     >
                         {slotsLoading ? (
+                            // Show loading state while fetching slots
                             <MenuItem disabled>
                                 <Box display="flex" alignItems="center" gap={1}>
                                     <CircularProgress size={16} />
@@ -185,11 +186,28 @@ export default function AppointmentForm() {
                                 </Box>
                             </MenuItem>
                         ) : (
-                            [...new Set([start_time, ...availableSlots])].map((slot, idx) => (
-                                <MenuItem key={idx} value={slot}>
-                                    {slot} {/* Slot shown in HH:MM:SS */}
-                                </MenuItem>
-                            ))
+                            // Map over available slots
+                            [...new Set([start_time, ...availableSlots])]
+                                .filter((slot) => {
+                                    // Convert slot into a Date object for comparison
+                                    const slotDateTime = new Date(`${date}T${slot}`);
+
+                                    // Get current time
+                                    const now = new Date();
+
+                                    // If the selected date is today, filter out slots that are already in the past
+                                    if (date === now.toISOString().split("T")[0]) {
+                                        return slotDateTime > now;
+                                    }
+
+                                    // Otherwise (future date), keep all slots
+                                    return true;
+                                })
+                                .map((slot, idx) => (
+                                    <MenuItem key={idx} value={slot}>
+                                        {slot} {/* Slot shown in HH:MM:SS */}
+                                    </MenuItem>
+                                ))
                         )}
                     </TextField>
 

@@ -1,5 +1,10 @@
 # Doctor Agentic App
 
+![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green?logo=fastapi)
+![React](https://img.shields.io/badge/React-18+-blue?logo=react)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
+
 ---
 
 ## Overview
@@ -8,7 +13,38 @@ The **Doctor Agentic App** is a full-stack application for doctor appointment sc
 
 ---
 
-## Tech Stack
+## Features
+
+- 🗓️ Create, update, and delete doctor appointments  
+- 📧 Receive Gmail notifications for booked/cancelled slots  
+- 📆 Sync appointments with Google Calendar  
+- 👩‍⚕️ Manage doctor availability and schedules  
+- 🔑 Role-based access control (Admin, Doctor, Patient)  
+- 🔒 Secure authentication with OAuth2 login  
+- ⚡ Built with FastAPI backend and React frontend for speed  
+
+---
+
+## 🎥 Demo (Videos & Screenshots)
+
+### Create Appointment Video  
+[![Create Appointment](demo_assets/create_appointment/create_appointment_thumbnail.png)](demo_assets/create_appointment/create_appointment.mp4)
+
+### Update Appointment Video  
+[![Update Appointment](demo_assets/update_appointment/update_appointment_thumbnail.png)](demo_assets/update_appointment/update_appointment.mp4)
+
+### Delete Appointment Video  
+[![Delete Appointment](demo_assets/delete_appointment/delete_appointment_thumbnail.png)](demo_assets/delete_appointment/delete_appointment.mp4)
+
+### Gmail Notification  
+![Gmail Notification](demo_assets/gmail_notification/gmail_notification.png)
+
+### Google Calendar Notification  
+![Google Calendar](demo_assets/google_calendar_notification/google_calendar_notification.png)
+
+---
+
+## 🛠️ Tech Stack
 
 - **Backend**: Python ,FastAPI, SQLAlchemy 
 - **Frontend**: React, TailwindCSS
@@ -19,7 +55,7 @@ The **Doctor Agentic App** is a full-stack application for doctor appointment sc
 
 ---
 
-## Installation
+## 📥 Installation
 
 ### 1. Clone the repository
 
@@ -42,10 +78,24 @@ Install Frontend dependencies:
 cd frontend
 npm install
 ```
-
 ---
 
-## Run the App
+## ⚙️ Environment Variables
+
+All environment variables are defined in `.env.example`.
+It includes database URL, Google API credentials, and app-specific settings.
+Copy it to `.env` and update the values with your own credentials:
+
+```bash
+cp .env.example .env
+```
+---
+
+## 🚀 Run the App
+
+> Make sure PostgreSQL is running and the database exists before running the backend.
+> Google APIs (Calendar & Gmail) require valid OAuth2 credentials.  
+> Configure your Google Cloud project and enable the respective APIs before use. 
 
 ### 1. Start the FastAPI backend
 
@@ -59,41 +109,50 @@ uvicorn backend.main:app --reload
 cd frontend
 npm run dev
 ```
+Once both services are running:
+- Frontend: [http://localhost:5173](http://localhost:5173)  
+- Backend: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
 
-## .env Setup
+## 🛡️ Role-Based Access Control (RBAC)
 
-Make a `.env` file at the root of the project (doctor_agentic_app) with the following content:
+The system enforces strict role-based access control.  
+Below is the full permission matrix across all roles and resources:
 
-```ini
-# Postgresql Database URL
-DATABASE_URL=postgresql://username:password@localhost:5432/db_name_here
+| **Resource**     | **Action**              | **Admin** | **Doctor**                          | **Patient**                         |
+|------------------|-------------------------|-----------|-------------------------------------|-------------------------------------|
+| **Patients**     | Create Patient          | ✅        | ❌                                 | ✅ (self, default on signup)        |
+|                  | Get All Patients        | ✅        | ❌                                 | ❌                                  |
+|                  | Get Patient By ID       | ✅        | ❌                                 | ✅ (self only)                      |
+|                  | Update Patient          | ✅        | ❌                                 | ✅ (self only)                      |
+|                  | Delete Patient          | ✅        | ❌                                 | ❌                                  |
+| **Doctors**      | Create Doctor           | ✅        | ❌                                 | ❌                                  |
+|                  | Get All Doctors         | ✅        | ✅                                 | ✅                                  |
+|                  | Get Doctor By ID        | ✅        | ✅ (self only)                     | ✅                                  |
+|                  | Update Doctor           | ✅        | ✅ (self only)                     | ❌                                  |
+|                  | Delete Doctor           | ✅        | ❌                                 | ❌                                  |
+| **Appointments** | Create Appointment      | ✅        | ❌                                 | ✅ (book with doctor)               |
+|                  | Get All Appointments    | ✅        | ✅ (only their assigned patients)  | ✅ (self only)                      |
+|                  | Get Appointment By ID   | ✅        | ✅ (if assigned doctor)            | ✅ (self only)                      |
+|                  | Update Appointment      | ✅        | ✅ (status/notes only)             | ✅ (reschedule/cancel self)         |
+|                  | Delete Appointment      | ✅        | ❌                                 | ✅ (cancel own)                     |
 
-# JWT Secret Key used for signing tokens
-JWT_SECRET=jwt_secret_key_here
-JWT_ALGORITHM=jwt_algorithm_here
+---
 
-# JWT Token Expiry
-ACCESS_TOKEN_EXPIRE_MINUTES=minutes_in_numbers_here
-REFRESH_TOKEN_EXPIRE_DAYS=time_in_days_here
+## 📝 Notes
+- **Default role** → New users are always registered as **Patients**.  
+- **Admin** → Has full access to all resources and actions.  
+- **Doctor** → Restricted to their own profile and appointments assigned to them.  
+- **Patient** → Restricted to their own profile and appointments they booked.  
+- **Appointments**:  
+  - Patients can reschedule or cancel their own.  
+  - Doctors can update notes/status for assigned appointments.  
+  - Admins can modify or delete any appointment.  
 
-# Google OAuth2 Credentials
-GOOGLE_CLIENT_ID=google_client_id_here
-GOOGLE_CLIENT_SECRET=your_client_secret_here
-GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
-GOOGLE_SCOPES=openid,email,profile,https://www.googleapis.com/auth/calendar,https://www.googleapis.com/auth/gmail.send
+---
 
-# Frontend URI
-FRONTEND_REDIRECT_URI=http://localhost:5173/dashboard
-
-# Backend URL
-BACKEND_URL=http://localhost:8000
-
-# Ollama Model Details
-OLLAMA_MODEL=your_ollama_model_here
-OLLAMA_TEMPERATURE=temperature_to_set_here
-OLLAMA_BASE_URL=http://localhost:11434
-```
+## 📄 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
