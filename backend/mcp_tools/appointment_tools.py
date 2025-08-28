@@ -1,12 +1,12 @@
 # ---------------------------- External Imports ----------------------------
 
-# Import the tool decorator from FastAPI MCP to expose functions to the LLM agent
-from fastapi_mcp import tool
-
 # Import the SQLAlchemy Session class for typed DB access
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
+
+# Import the shared MCP instance
+from ..mcp_main import mcp  
 
 # Import the service to create a new appointment
 from ..services.appointment.create_appointment_service import CreateAppointmentService
@@ -26,7 +26,7 @@ from ..services.appointment.get_all_appointments_service import GetAllAppointmen
 # ---------------------------- Tool: Create Appointment ----------------------------
 
 # Define an MCP tool that creates a new appointment using patient & doctor info
-@tool(name="create_appointment", description="Create a new appointment with patient and doctor info.")
+@mcp.tool(name="create_appointment", description="Create a new appointment with patient and doctor info.")
 async def create_appointment_tool(
     appointment: dict,       # Dictionary containing appointment creation data
     token: str,              # Auth token from frontend or LLM agent context
@@ -39,7 +39,7 @@ async def create_appointment_tool(
 # ---------------------------- Tool: Get Appointment by ID ----------------------------
 
 # Define an MCP tool that retrieves a single appointment by its unique ID
-@tool(name="get_appointment_by_id", description="Retrieve an appointment by its ID.")
+@mcp.tool(name="get_appointment_by_id", description="Retrieve an appointment by its ID.")
 async def get_appointment_by_id_tool(
     appointment_id: int,     # ID of the appointment to retrieve
     token: str,              # Auth token from frontend or agent context
@@ -52,7 +52,7 @@ async def get_appointment_by_id_tool(
 # ---------------------------- Tool: Update Appointment ----------------------------
 
 # Define an MCP tool that updates an existing appointment
-@tool(name="update_appointment", description="Update details of an existing appointment.")
+@mcp.tool(name="update_appointment", description="Update details of an existing appointment.")
 async def update_appointment_tool(
     appointment_id: int,         # ID of the appointment to update
     appointment_update: dict,    # Dictionary containing updated fields
@@ -66,7 +66,7 @@ async def update_appointment_tool(
 # ---------------------------- Tool: Delete Appointment ----------------------------
 
 # Define an MCP tool that deletes an appointment based on ID
-@tool(name="delete_appointment", description="Delete an appointment by ID.")
+@mcp.tool(name="delete_appointment", description="Delete an appointment by ID.")
 async def delete_appointment_tool(
     appointment_id: int,     # ID of the appointment to delete
     token: str,              # Auth token to verify permissions
@@ -79,7 +79,7 @@ async def delete_appointment_tool(
 # ---------------------------- Tool: Get All Appointments ----------------------------
 
 # Define an MCP tool that retrieves all appointments accessible to the user
-@tool(name="get_all_appointments", description="Fetch all appointments accessible to the user.")
+@mcp.tool(name="get_all_appointments", description="Fetch all appointments accessible to the user.")
 async def get_all_appointments_tool(
     token: str,              # User's access token for authorization and filtering
     db: Session,             # SQLAlchemy DB session

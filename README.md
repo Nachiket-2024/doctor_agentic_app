@@ -30,15 +30,19 @@ The **Doctor Agentic App** is a full-stack application for doctor appointment sc
 ### Create Appointment Video  
 [![Create Appointment](demo_assets/create_appointment/create_appointment_thumbnail.png)](demo_assets/create_appointment/create_appointment.mp4)
 
+---
 ### Update Appointment Video  
 [![Update Appointment](demo_assets/update_appointment/update_appointment_thumbnail.png)](demo_assets/update_appointment/update_appointment.mp4)
 
+---
 ### Delete Appointment Video  
 [![Delete Appointment](demo_assets/delete_appointment/delete_appointment_thumbnail.png)](demo_assets/delete_appointment/delete_appointment.mp4)
 
+---
 ### Gmail Notification  
 ![Gmail Notification](demo_assets/gmail_notification/gmail_notification.png)
 
+---
 ### Google Calendar Notification  
 ![Google Calendar](demo_assets/google_calendar_notification/google_calendar_notification.png)
 
@@ -49,7 +53,7 @@ The **Doctor Agentic App** is a full-stack application for doctor appointment sc
 - **Backend**: Python ,FastAPI, SQLAlchemy 
 - **Frontend**: React, TailwindCSS
 - **Database**: PostgreSQL
-- **Model Context Protocol (MCP)**: FastAPI-MCP
+- **Model Context Protocol (MCP)**: FastMCP
 - **LLM**: Ollama (Locally hosted)
 - **Other**: Pydantic, Requests, Google APIs (Calendar, Gmail)
 

@@ -1,93 +1,94 @@
 # ---------------------------- External Imports ----------------------------
 
-# Load environment variables from .env file  
-from dotenv import load_dotenv
-
-# Work with file paths in an OS-independent way  
-from pathlib import Path
-
-# Import FastAPI framework for headers extraction
+# Import FastAPI framework to create the API app
 from fastapi import FastAPI
 
-# Middleware to handle Cross-Origin Resource Sharing  
+# Import middleware to handle Cross-Origin Resource Sharing
 from fastapi.middleware.cors import CORSMiddleware
 
-# FastAPI MCP integration
-from fastapi_mcp import FastApiMCP
+# Import asyncio for background task execution
+import asyncio
 
-
-# ---------------------------- Environment Setup ----------------------------
-
-# Get the base directory (3 levels up from current file)  
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-# Load environment variables from the .env file in base directory  
-_ = load_dotenv(dotenv_path=BASE_DIR / ".env")
-
+# Import asynccontextmanager to manage startup/shutdown context
+from contextlib import asynccontextmanager
 
 # ---------------------------- Internal Imports ----------------------------
 
-# Authentication route handlers  
+# Import shared MCP instance for background processing
+from .mcp_main import mcp
+
+# Import centralized settings (loads environment variables)
+from .core.settings import settings
+
+# Import authentication route handlers
 from .auth.auth_routes import router as auth_router
 
-# Doctor route handlers  
+# Import doctor route handlers
 from .api.doctor_routes import router as doctor_router
 
-# Patient route handlers  
+# Import patient route handlers
 from .api.patient_routes import router as patient_router
 
-# Appointment route handlers  
+# Import appointment route handlers
 from .api.appointment_routes import router as appointment_router
 
-# Doctor slot availability handlers  
+# Import doctor slot availability handlers
 from .api.doctor_slot_routes import router as doctor_slot_router
 
+# ---------------------------- Lifespan Context ----------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan context to run MCP asynchronously on startup."""
+
+    # Parse host and port from MCP_URL (format: http://host:port)
+    host_port = settings.MCP_URL.split("//")[1].split(":")
+    host = host_port[0]
+    port = int(host_port[1])
+
+    # Start MCP as a background asynchronous task
+    loop = asyncio.get_event_loop()
+    loop.create_task(mcp.run_async(host=host, port=port))
+
+    # Yield control to FastAPI; app runs while inside this block
+    yield
+
+    # Optional cleanup on shutdown (currently no tasks needed)
 
 # ---------------------------- App Initialization ----------------------------
 
-# Create FastAPI app
-app = FastAPI()
+# Create FastAPI app instance with lifespan context
+app = FastAPI(lifespan=lifespan)
 
-# Enable CORS to allow frontend (e.g., React app) to access backend  
+# Add CORS middleware to allow frontend access dynamically
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[settings.FRONTEND_REDIRECT_URI],  # allow only frontend origin
+    allow_credentials=True,                           # allow cookies/credentials
+    allow_methods=["*"],                              # allow all HTTP methods
+    allow_headers=["*"],                              # allow all headers
 )
 
-# Register authentication-related routes under /auth  
+# ---------------------------- Router Registration ----------------------------
+
+# Register authentication routes
 app.include_router(auth_router)
 
-# Register doctor-specific routes under /doctors  
+# Register doctor routes
 app.include_router(doctor_router)
 
-# Register doctor slot management routes under /doctor_slot  
+# Register doctor slot availability routes
 app.include_router(doctor_slot_router)
 
-# Register appointment-related routes under /appointments  
+# Register appointment routes
 app.include_router(appointment_router)
 
-# Register patient-specific routes under /patients  
+# Register patient routes
 app.include_router(patient_router)
-
-
-# ---------------------------- MCP Setup ----------------------------
-
-# Instantiate FastApiMCP with your FastAPI app
-mcp = FastApiMCP(app)
-
-# Mount the MCP server endpoint at /mcp automatically
-mcp.mount_http()
-
-# Setup the MCP server (discovers FastAPI endpoints and exposes as MCP tools)
-mcp.setup_server()
-
 
 # ---------------------------- Root Route ----------------------------
 
-# Define a simple root route to verify the API is running  
 @app.get("/")
 def read_root():
+    """Simple root endpoint to verify the API is running."""
     return {"message": "Welcome to the Doctor Agentic app!"}

@@ -1,12 +1,13 @@
 # ---------------------------- Web Framework ----------------------------
+
 # FastAPI framework for building APIs
 fastapi
 
 # ASGI server for running FastAPI applications
 uvicorn[standard]
 
-
 # ---------------------------- Database & ORM ----------------------------
+
 # SQLAlchemy ORM for database modeling and queries
 sqlalchemy
 
@@ -16,8 +17,8 @@ psycopg2-binary
 # Database migration tool for SQLAlchemy models
 alembic
 
-
 # ---------------------------- Data Validation & Settings ----------------------------
+
 # Core data validation and serialization library
 pydantic
 
@@ -30,8 +31,8 @@ pydantic[email]
 # Environment variable loading for local development
 python-dotenv
 
-
 # ---------------------------- Authentication & Security ----------------------------
+
 # JWT handling with support for cryptographic algorithms
 python-jose[cryptography]
 
@@ -44,33 +45,23 @@ google-auth-oauthlib
 # HTTP transport layer for Google auth flows
 google-auth-httplib2
 
-
 # ---------------------------- Google API Client ----------------------------
+
 # Core Google API Python client library
 google-api-python-client
 
-
 # ---------------------------- Logging ----------------------------
+
 # Structured logging support for JSON output
 python-json-logger
 
-
 # ---------------------------- Agentic AI / LLM Integration ----------------------------
+
 # FastAPI plugin to expose backend functions as tools for LLM agents
-fastapi-mcp
-
-# LangChain framework for building agentic apps with LLMs
-langchain
-
-# LangChain integration for OpenAI-compatible models
-langchain-community
-
-# Core OpenAI-compatible client (used even with Ollama if needed)
-openai
+fastmcp
 
 # Optional: HTTP library used internally by LangChain and LLMs
 httpx
-
 
 # ---------------------------- Local LLM (Optional Notes) ----------------------------
 # Ollama is installed separately: https://ollama.com

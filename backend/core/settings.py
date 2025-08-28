@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 # Import Field to declare and configure model attributes with validation and metadata
 from pydantic import Field
 
+
 # ---------------------------- Settings Class ----------------------------
 
 # Define a Settings class to centralize configuration loaded from environment variables
@@ -43,14 +44,18 @@ class Settings(BaseSettings):
     # Backend base URL where FastAPI is running
     BACKEND_URL: str = Field(..., env="BACKEND_URL")
 
+    # MCP base URL where FastMCP server is running
+    MCP_URL: str = Field(..., env="MCP_URL")
+
     # Name of the LLM model served by Ollama (e.g., "llama3", "mistral")
     OLLAMA_MODEL: str = Field(..., env="OLLAMA_MODEL")
 
     # Sampling temperature for the LLM, affects randomness of outputs
     OLLAMA_TEMPERATURE: float = Field(..., env="OLLAMA_TEMPERATURE")
 
-    # Ollama Base Url is where Ollama server / llm is running
+    # Ollama Base URL is where Ollama server / LLM is running
     OLLAMA_BASE_URL: str = Field(..., env="OLLAMA_BASE_URL")
+
 
     # ---------------------------- Config Class ----------------------------
 
@@ -58,6 +63,7 @@ class Settings(BaseSettings):
     class Config:
         # Specify the .env file to load environment variables from
         env_file = ".env"
+
 
 # ---------------------------- Instantiate Settings ----------------------------
 

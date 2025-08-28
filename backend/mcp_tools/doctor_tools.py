@@ -1,12 +1,12 @@
 # ---------------------------- External Imports ----------------------------
 
-# Import the tool decorator from FastAPI MCP
-from fastapi_mcp import tool
-
 # SQLAlchemy ORM Session for database access
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
+
+# Import the shared MCP instance
+from ..mcp_main import mcp  
 
 # Import Pydantic schemas for Doctor for input validation and output
 from ..schemas.doctor_schema import DoctorCreate, DoctorUpdate
@@ -29,7 +29,7 @@ from ..services.doctor.get_all_doctors_service import GetAllDoctorsService
 # ---------------------------- Tool: Get Doctor by ID ----------------------------
 
 # MCP tool to retrieve a specific doctor by ID
-@tool(name="get_doctor_by_id", description="Retrieve a doctor by their ID.")
+@mcp.tool(name="get_doctor_by_id", description="Retrieve a doctor by their ID.")
 async def get_doctor_tool(
     doctor_id: int,                  # Doctor's unique ID to retrieve
     token: str,                      # Authorization token
@@ -42,7 +42,7 @@ async def get_doctor_tool(
 # ---------------------------- Tool: Create Doctor (Admin Only) ----------------------------
 
 # MCP tool to create a new doctor (Admin access required)
-@tool(name="create_doctor", description="Create a new doctor. Only admins can perform this.")
+@mcp.tool(name="create_doctor", description="Create a new doctor. Only admins can perform this.")
 async def create_doctor_tool(
     doctor: DoctorCreate,            # Doctor data for creation
     token: str,                      # Authorization token
@@ -55,7 +55,7 @@ async def create_doctor_tool(
 # ---------------------------- Tool: Update Doctor (Admin Only) ----------------------------
 
 # MCP tool to update an existing doctor's information
-@tool(name="update_doctor", description="Update a doctor. Only admins can perform this.")
+@mcp.tool(name="update_doctor", description="Update a doctor. Only admins can perform this.")
 async def update_doctor_tool(
     doctor_id: int,                  # ID of the doctor to update
     updated_doctor: DoctorUpdate,   # New data to update the doctor with
@@ -69,7 +69,7 @@ async def update_doctor_tool(
 # ---------------------------- Tool: Delete Doctor (Admin Only) ----------------------------
 
 # MCP tool to delete a doctor
-@tool(name="delete_doctor", description="Delete a doctor by ID. Only admins can perform this.")
+@mcp.tool(name="delete_doctor", description="Delete a doctor by ID. Only admins can perform this.")
 async def delete_doctor_tool(
     doctor_id: int,                  # ID of the doctor to delete
     token: str,                      # Authorization token
@@ -82,7 +82,7 @@ async def delete_doctor_tool(
 # ---------------------------- Tool: Get All Doctors ----------------------------
 
 # MCP tool to retrieve all doctors (admins/patients see all; doctors see self)
-@tool(name="get_all_doctors", description="Retrieve all doctors (filtered by role).")
+@mcp.tool(name="get_all_doctors", description="Retrieve all doctors (filtered by role).")
 async def get_all_doctors_tool(
     token: str,                      # Authorization token
     db: Session                      # Injected database session
