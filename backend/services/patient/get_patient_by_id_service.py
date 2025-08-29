@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import HTTPException for returning API error responses
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import the Patient ORM model for database queries
 from ...models.patient_model import Patient
 
@@ -15,7 +13,6 @@ from ...models.patient_model import Patient
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: GetPatientByIDService ----------------------------
-
 class GetPatientByIDService:
     """
     Service to fetch a patient by ID with role-based access control.
@@ -23,13 +20,11 @@ class GetPatientByIDService:
     """
 
     # ---------------------------- Constructor ----------------------------
-
     def __init__(self, db: Session):
         # Store the database session for reuse
         self.db = db
 
     # ---------------------------- Method: get_patient_by_id ----------------------------
-
     async def get_patient_by_id(self, patient_id: int, token: str):
         """
         Retrieve patient information by ID with role-based authorization.

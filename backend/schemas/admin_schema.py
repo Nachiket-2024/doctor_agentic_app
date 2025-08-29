@@ -1,10 +1,8 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # Import BaseModel and ConfigDict from Pydantic for schema creation and configuration  
 from pydantic import BaseModel, ConfigDict
 
 # ------------------------------------- Base Schema for Admin -------------------------------------
-
 # Define base schema with common admin fields  
 class AdminBase(BaseModel):
     # Admin's full name (required)  
@@ -27,14 +25,12 @@ class AdminBase(BaseModel):
         from_attributes = True
 
 # ------------------------------------- Schema for Creating Admin -------------------------------------
-
 # Schema used when creating a new admin  
 class AdminCreate(AdminBase):
     # Inherits all fields from AdminBase  
     pass
 
 # ------------------------------------- Schema for Reading Admin -------------------------------------
-
 # Schema used when returning admin data from the API  
 class AdminRead(AdminBase):
     # Admin's unique database ID (included in read schema)  

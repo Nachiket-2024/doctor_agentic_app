@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Exception class for HTTP error responses
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Appointment model from SQLAlchemy
 from ...models.appointment_model import Appointment
 
@@ -15,7 +13,6 @@ from ...models.appointment_model import Appointment
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: GetAppointmentByIDService ----------------------------
-
 class GetAppointmentByIDService:
     """
     Service class to retrieve a specific appointment by ID with authorization checks.
@@ -27,7 +24,6 @@ class GetAppointmentByIDService:
         self.db = db
 
     # ---------------------------- Method: Get Appointment by ID ----------------------------
-
     async def get_appointment_by_id(self, appointment_id: int, token: str):
         """
         Fetch a specific appointment by ID with access control based on user role.

@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import HTTPException for raising standardized HTTP error responses
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import the Patient model to query patient records from the database
 from ...models.patient_model import Patient
 
@@ -18,7 +16,6 @@ from ...schemas.patient_schema import PatientDeleteResponse
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: DeletePatientService ----------------------------
-
 class DeletePatientService:
     """
     Service class responsible for deleting a patient from the system,
@@ -26,13 +23,11 @@ class DeletePatientService:
     """
 
     # ---------------------------- Constructor ----------------------------
-
     def __init__(self, db: Session):
         # Store the provided SQLAlchemy session
         self.db = db
 
     # ---------------------------- Method: delete_patient ----------------------------
-
     async def delete_patient(
         self,
         patient_id: int,  # Unique ID of the patient to delete

@@ -1,5 +1,4 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # Import BaseModel and ConfigDict for Pydantic schema creation and configuration  
 from pydantic import BaseModel, ConfigDict
 
@@ -10,7 +9,6 @@ import datetime
 from typing import Annotated
 
 # ------------------------------------- Base Schema for Appointment -------------------------------------
-
 # Define shared schema fields for appointment creation and reading  
 class AppointmentBase(BaseModel):
     # ID of the doctor assigned to the appointment (required)  
@@ -38,14 +36,12 @@ class AppointmentBase(BaseModel):
     event_id: Annotated[str | None, None] = None
 
 # ------------------------------------- Schema for Creating Appointments -------------------------------------
-
 # Schema used when creating a new appointment  
 class AppointmentCreate(AppointmentBase):
     # Inherits all fields from AppointmentBase  
     pass
 
 # ------------------------------------- Schema for Updating Appointments -------------------------------------
-
 # Schema used for updating existing appointments (all fields optional)  
 class AppointmentUpdate(BaseModel):
     # Optional update to doctor ID  
@@ -73,7 +69,6 @@ class AppointmentUpdate(BaseModel):
     event_id: Annotated[str | None, None] = None
 
 # ------------------------------------- Schema for Reading Appointments -------------------------------------
-
 # Schema used to return appointment data in API responses  
 class AppointmentResponse(AppointmentBase):
     # Auto-generated unique ID of the appointment  

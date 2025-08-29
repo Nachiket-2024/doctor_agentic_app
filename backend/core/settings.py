@@ -1,14 +1,11 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import BaseSettings for creating settings models using environment variables
 from pydantic_settings import BaseSettings
 
 # Import Field to declare and configure model attributes with validation and metadata
 from pydantic import Field
 
-
 # ---------------------------- Settings Class ----------------------------
-
 # Define a Settings class to centralize configuration loaded from environment variables
 class Settings(BaseSettings):
     # PostgreSQL Database URL, typically includes user, password, host, port, and DB name
@@ -56,16 +53,12 @@ class Settings(BaseSettings):
     # Ollama Base URL is where Ollama server / LLM is running
     OLLAMA_BASE_URL: str = Field(..., env="OLLAMA_BASE_URL")
 
-
     # ---------------------------- Config Class ----------------------------
-
     # Internal class to configure environment file loading
     class Config:
         # Specify the .env file to load environment variables from
         env_file = ".env"
 
-
 # ---------------------------- Instantiate Settings ----------------------------
-
 # Create a global settings object to be reused throughout the application
 settings = Settings()

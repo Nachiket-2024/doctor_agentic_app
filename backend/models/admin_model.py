@@ -1,15 +1,12 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # For defining column schema and types  
 from sqlalchemy import Column, Integer, String
 
 # ------------------------------------- Internal Imports -------------------------------------
-
 # For accessing the declarative base for SQLAlchemy models  
 from ..db.base import Base
 
 # ------------------------------------- Model Declaration -------------------------------------
-
 # Define the Admin model for administrator users  
 class Admin(Base):  
     """
@@ -31,7 +28,6 @@ class Admin(Base):
     email = Column(String, unique=True, nullable=False)
 
     # ---------------- Google OAuth Token Fields ----------------
-
     # Access token to allow admin to interact with Google APIs (e.g., Gmail, Calendar)  
     access_token = Column(String, nullable=True)
 

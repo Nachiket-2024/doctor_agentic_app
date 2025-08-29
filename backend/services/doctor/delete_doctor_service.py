@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import FastAPI HTTP exception handler
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import the Doctor ORM model
 from ...models.doctor_model import Doctor
 
@@ -18,7 +16,6 @@ from ...schemas.doctor_schema import DoctorDeleteResponse
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: DeleteDoctorService ----------------------------
-
 class DeleteDoctorService:
     """
     Service class to handle doctor deletion logic.
@@ -31,7 +28,6 @@ class DeleteDoctorService:
         self.db = db
 
     # ---------------------------- Method: delete_doctor ----------------------------
-
     async def delete_doctor(self, doctor_id: int, token: str) -> DoctorDeleteResponse:
         """
         Delete a doctor from the database.

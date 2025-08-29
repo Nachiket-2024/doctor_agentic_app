@@ -1,23 +1,21 @@
 # ---------------------------- External Imports ----------------------------
-
-# Import FastAPI framework to create the API app
+# Import FastAPI framework to create API application
 from fastapi import FastAPI
 
-# Import middleware to handle Cross-Origin Resource Sharing
+# Import CORS middleware to handle Cross-Origin Resource Sharing
 from fastapi.middleware.cors import CORSMiddleware
 
-# Import asyncio for background task execution
+# Import asyncio for asynchronous background task execution
 import asyncio
 
-# Import asynccontextmanager to manage startup/shutdown context
+# Import asynccontextmanager to manage startup/shutdown context for the app
 from contextlib import asynccontextmanager
 
 # ---------------------------- Internal Imports ----------------------------
-
-# Import shared MCP instance for background processing
+# Import shared MCP instance for background task execution
 from .mcp_main import mcp
 
-# Import centralized settings (loads environment variables)
+# Import centralized settings for environment variables
 from .core.settings import settings
 
 # Import authentication route handlers
@@ -32,45 +30,41 @@ from .api.patient_routes import router as patient_router
 # Import appointment route handlers
 from .api.appointment_routes import router as appointment_router
 
-# Import doctor slot availability handlers
+# Import doctor slot availability route handlers
 from .api.doctor_slot_routes import router as doctor_slot_router
 
 # ---------------------------- Lifespan Context ----------------------------
-
+# Define FastAPI lifespan context to manage startup/shutdown events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan context to run MCP asynchronously on startup."""
 
-    # Parse host and port from MCP_URL (format: http://host:port)
+    # Parse host and port from MCP_URL setting (format: http://host:port)
     host_port = settings.MCP_URL.split("//")[1].split(":")
-    host = host_port[0]
-    port = int(host_port[1])
+    host = host_port[0]           # Hostname part
+    port = int(host_port[1])      # Port as integer
 
-    # Start MCP as a background asynchronous task
+    # Start MCP asynchronously in a background task
     loop = asyncio.get_event_loop()
     loop.create_task(mcp.run_async(host=host, port=port))
 
-    # Yield control to FastAPI; app runs while inside this block
+    # Yield control to FastAPI; app continues running while inside this block
     yield
 
-    # Optional cleanup on shutdown (currently no tasks needed)
-
 # ---------------------------- App Initialization ----------------------------
-
 # Create FastAPI app instance with lifespan context
 app = FastAPI(lifespan=lifespan)
 
-# Add CORS middleware to allow frontend access dynamically
+# Add CORS middleware to allow frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_REDIRECT_URI],  # allow only frontend origin
-    allow_credentials=True,                           # allow cookies/credentials
-    allow_methods=["*"],                              # allow all HTTP methods
-    allow_headers=["*"],                              # allow all headers
+    allow_origins=[settings.FRONTEND_REDIRECT_URI],  # Allow requests from frontend origin only
+    allow_credentials=True,                           # Allow cookies and credentials
+    allow_methods=["*"],                              # Allow all HTTP methods
+    allow_headers=["*"],                              # Allow all headers
 )
 
 # ---------------------------- Router Registration ----------------------------
-
 # Register authentication routes
 app.include_router(auth_router)
 
@@ -87,7 +81,7 @@ app.include_router(appointment_router)
 app.include_router(patient_router)
 
 # ---------------------------- Root Route ----------------------------
-
+# Define a simple root endpoint to verify the API is running
 @app.get("/")
 def read_root():
     """Simple root endpoint to verify the API is running."""

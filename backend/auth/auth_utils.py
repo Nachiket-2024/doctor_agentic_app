@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # For working with timestamps and timezones  
 from datetime import datetime, timedelta, timezone
 
@@ -19,7 +18,6 @@ from fastapi import HTTPException
 import traceback
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Application-wide settings from environment  
 from ..core.settings import settings
 
@@ -33,14 +31,12 @@ from ..models.doctor_model import Doctor
 from ..models.patient_model import Patient
 
 # ---------------------------- AuthUtils Class ----------------------------
-
 class AuthUtils:
     """
     A utility class for JWT operations and Google OAuth2 authentication.
     """
 
     # ------------------------ Method: Create JWT Token ------------------------
-
     @staticmethod
     def create_jwt_token(user_info: dict) -> str:
         """
@@ -70,7 +66,6 @@ class AuthUtils:
         return encoded_jwt
 
     # ------------------------ Method: Verify JWT Token ------------------------
-
     @staticmethod
     def verify_jwt_token(token: str) -> dict:
         """
@@ -102,7 +97,6 @@ class AuthUtils:
             raise HTTPException(status_code=500, detail="Token validation error")
 
     # ------------------------ Method: Determine Role and ID ------------------------
-
     @staticmethod
     def determine_user_role_and_id(email: str, db: Session) -> tuple[str, int]:
         """
@@ -142,7 +136,6 @@ class AuthUtils:
         return "patient", patient.id
 
     # ------------------------ Method: Google OAuth Authentication ------------------------
-
     @staticmethod
     def authenticate_with_google(code: str, db: Session) -> dict:
         """

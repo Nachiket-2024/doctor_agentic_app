@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Exception class for HTTP error responses
 from fastapi import HTTPException
 
@@ -16,7 +15,6 @@ import traceback
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Appointment model from SQLAlchemy
 from ...models.appointment_model import Appointment
 
@@ -41,7 +39,6 @@ from ...google_integration.google_calender_service import GoogleCalendarService
 from ...utils.slot_availability_utils import SlotAvailabilityUtils
 
 # ---------------------------- Class: AppointmentService ----------------------------
-
 class CreateAppointmentService:
     """
     Service class responsible for managing appointment-related business logic.
@@ -53,7 +50,6 @@ class CreateAppointmentService:
         self.db = db
 
     # ---------------------------- Method: Create Appointment Entry ----------------------------
-
     async def create_appointment(self, appointment: AppointmentCreate, token: str):
         """
         Creates a new appointment with all validations, slot availability checks,

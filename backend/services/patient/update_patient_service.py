@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import HTTPException for raising errors in response
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import Patient model for querying and updating patient records
 from ...models.patient_model import Patient
 
@@ -18,7 +16,6 @@ from ...schemas.patient_schema import PatientUpdate
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: UpdatePatientService ----------------------------
-
 class UpdatePatientService:
     """
     Service to handle updating patient records with role-based access control.
@@ -26,13 +23,11 @@ class UpdatePatientService:
     """
 
     # ---------------------------- Constructor ----------------------------
-
     def __init__(self, db: Session):
         # Store the database session for use in instance methods
         self.db = db
 
     # ---------------------------- Method: update_patient ----------------------------
-
     async def update_patient(
         self,
         patient_id: int,                 # ID of the patient to update

@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Exception class for HTTP error responses
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Appointment model
 from ...models.appointment_model import Appointment
 
@@ -25,7 +23,6 @@ from ...google_integration.google_calender_service import GoogleCalendarService
 from ...google_integration.gmail_service import GmailService
 
 # ---------------------------- Class: AppointmentService ----------------------------
-
 class DeleteAppointmentService:
     """
     Service class for managing appointments, including creation, deletion,
@@ -38,7 +35,6 @@ class DeleteAppointmentService:
         self.db = db
 
     # ---------------------------- Method: Delete Appointment ----------------------------
-
     async def delete_appointment(self, appointment_id: int, token: str):
         """
         Deletes an appointment with proper role check, calendar cleanup, and notification.

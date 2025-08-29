@@ -1,15 +1,12 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # Required SQLAlchemy column types for table definitions
 from sqlalchemy import Column, Integer, String
 
 # ------------------------------------- Internal Imports -------------------------------------
-
 # Import base ORM model for table inheritance
 from ..db.base import Base
 
 # ------------------------------------- Patient Model -------------------------------------
-
 # Define the Patient model class inheriting from SQLAlchemy Base
 class Patient(Base):
     """
@@ -36,7 +33,6 @@ class Patient(Base):
     age = Column(Integer, nullable=True)
 
     # ---------------- Google OAuth Token Fields ----------------
-
     # Access token for authorized Google API requests (required after OAuth login)
     access_token = Column(String, nullable=True)
 

@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Exception class for HTTP errors
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # SQLAlchemy model for Appointment
 from ...models.appointment_model import Appointment
 
@@ -15,7 +13,6 @@ from ...models.appointment_model import Appointment
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: AppointmentService ----------------------------
-
 class GetAllAppointmentsService:
     """
     Service class for managing appointments (CRUD, notifications, calendar sync).
@@ -27,7 +24,6 @@ class GetAllAppointmentsService:
         self.db = db
 
     # ---------------------------- Method: Get All Appointments ----------------------------
-
     async def get_all_appointments(self, token: str):
         """
         Fetch all appointments based on the role of the authenticated user.

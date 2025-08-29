@@ -1,15 +1,12 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # Required SQLAlchemy column types for table definitions
 from sqlalchemy import Column, Integer, String, JSON
 
 # ------------------------------------- Internal Imports -------------------------------------
-
 # Import base ORM model for table inheritance
 from ..db.base import Base
 
 # ------------------------------------- Doctor Model -------------------------------------
-
 # Define the Doctor model class inheriting from SQLAlchemy Base
 class Doctor(Base):
     """
@@ -47,7 +44,6 @@ class Doctor(Base):
     weekly_available_slots = Column(JSON, nullable=True)
 
     # ---------------- Google OAuth Token Fields ----------------
-
     # Access token for authorized Google API requests (set after Google login)
     access_token = Column(String, nullable=True)
 

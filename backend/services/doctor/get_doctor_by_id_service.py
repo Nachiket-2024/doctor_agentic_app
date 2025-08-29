@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import HTTPException for API error handling
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import Doctor ORM model
 from ...models.doctor_model import Doctor
 
@@ -15,7 +13,6 @@ from ...models.doctor_model import Doctor
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: GetDoctorByIdService ----------------------------
-
 class GetDoctorByIdService:
     """
     Service class to retrieve a doctor by ID. Token validation is enforced,
@@ -23,13 +20,11 @@ class GetDoctorByIdService:
     """
 
     # ---------------------------- Constructor ----------------------------
-
     def __init__(self, db: Session):
         # Store the DB session for use in the method
         self.db = db
 
     # ---------------------------- Method: get_doctor_by_id ----------------------------
-
     async def get_doctor_by_id(self, doctor_id: int, token: str) -> Doctor:
         """
         Retrieve a doctor from the database by ID.

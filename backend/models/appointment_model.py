@@ -1,5 +1,4 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # Import necessary SQLAlchemy column types for defining model attributes  
 from sqlalchemy import Column, Integer, ForeignKey, String, Date, Time
 
@@ -7,7 +6,6 @@ from sqlalchemy import Column, Integer, ForeignKey, String, Date, Time
 from sqlalchemy.orm import relationship
 
 # ------------------------------------- Internal Imports -------------------------------------
-
 # Import the base class that all SQLAlchemy models inherit from  
 from ..db.base import Base
 
@@ -18,7 +16,6 @@ from .patient_model import Patient
 from .doctor_model import Doctor
 
 # ------------------------------------- Appointment Model -------------------------------------
-
 # Define the Appointment model class that inherits from Base  
 class Appointment(Base):
 
@@ -53,7 +50,6 @@ class Appointment(Base):
     event_id = Column(String, nullable=True)
 
     # --------------------- ORM Relationships ---------------------
-
     # Relationship to access doctor details via doctor_id foreign key  
     doctor = relationship("Doctor", foreign_keys=[doctor_id])
 

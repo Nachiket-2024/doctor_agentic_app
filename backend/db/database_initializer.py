@@ -1,5 +1,4 @@
 # ---------------------------- Internal Imports ----------------------------
-
 # Import the session manager that handles DB engine and sessions
 from .database_session_manager import DatabaseSessionManager
 
@@ -13,7 +12,6 @@ from ..models.admin_model import Admin
 from ..models.appointment_model import Appointment
 
 # ---------------------------- Class: DatabaseInitializer ----------------------------
-
 class DatabaseInitializer:
     """
     Responsible for initializing the database schema by creating all tables
@@ -34,9 +32,7 @@ class DatabaseInitializer:
         """
         Base.metadata.create_all(bind=self.engine)
 
-
 # ---------------------------- Entry Point for Direct Execution ----------------------------
-
 # Allow direct execution to initialize the DB schema via CLI
 if __name__ == "__main__":
     # Instantiate the session manager

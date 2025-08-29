@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import HTTPException for raising API errors
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import the Patient SQLAlchemy model
 from ...models.patient_model import Patient
 
@@ -18,20 +16,17 @@ from ...schemas.patient_schema import PatientCreate
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: CreatePatientService ----------------------------
-
 class CreatePatientService:
     """
     Service class to handle logic related to creating a new patient.
     """
 
     # ---------------------------- Constructor ----------------------------
-
     def __init__(self, db: Session):
         # Store the provided SQLAlchemy session
         self.db = db
 
     # ---------------------------- Method: create_patient ----------------------------
-
     async def create_patient(
         self,
         patient_data: PatientCreate,  # Pydantic model containing patient creation fields

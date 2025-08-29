@@ -1,10 +1,8 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # Import BaseModel and ConfigDict for schema creation and ORM compatibility
 from pydantic import BaseModel, ConfigDict
 
 # ------------------------------------- Base Schema for Doctor -------------------------------------
-
 # Base schema containing fields shared across other schemas
 class DoctorBase(BaseModel):
     # Full name of the doctor (required)
@@ -29,7 +27,6 @@ class DoctorBase(BaseModel):
     weekly_available_slots: dict | None = None
 
     # ---------------- Google OAuth Token Fields ----------------
-
     # Access token to authorize Google Calendar or Gmail APIs
     access_token: str | None = None
 
@@ -44,14 +41,12 @@ class DoctorBase(BaseModel):
         from_attributes = True
 
 # ------------------------------------- Schema for Creating Doctor -------------------------------------
-
 # Schema used when creating a new doctor via API
 class DoctorCreate(DoctorBase):
     # Inherits all fields from DoctorBase
     pass
 
 # ------------------------------------- Schema for Reading Doctor -------------------------------------
-
 # Schema used when reading doctor data from the database or returning from API
 class DoctorRead(DoctorBase):
     # Unique doctor ID assigned by the database
@@ -62,7 +57,6 @@ class DoctorRead(DoctorBase):
         from_attributes = True
 
 # ------------------------------------- Schema for Updating Doctor -------------------------------------
-
 # Schema used for partial updates of doctor fields
 class DoctorUpdate(BaseModel):
     # Optional updated full name
@@ -100,7 +94,6 @@ class DoctorUpdate(BaseModel):
         from_attributes = True
 
 # ------------------------------------- Schema for Doctor Deletion Response -------------------------------------
-
 # Schema returned when a doctor is successfully deleted
 class DoctorDeleteResponse(BaseModel):
     # Message confirming the deletion

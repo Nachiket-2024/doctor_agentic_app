@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import typing's Generator to define function return types that yield values
 from typing import Generator
 
@@ -11,7 +10,6 @@ from sqlalchemy.orm import sessionmaker, Session
 from ..core.settings import settings
 
 # ---------------------------- Class: DatabaseSessionManager ----------------------------
-
 class DatabaseSessionManager:
     """
     Handles environment-based DB config, initializes SQLAlchemy engine/sessionmaker,
@@ -19,7 +17,6 @@ class DatabaseSessionManager:
     """
 
     # ------------------------ Constructor: Initialize DB Engine and Session ------------------------
-
     def __init__(self):
         # Fetch the database URL from the environment settings
         db_url = settings.DATABASE_URL
@@ -38,7 +35,6 @@ class DatabaseSessionManager:
         )
 
     # ------------------------ Dependency: Yield DB Session ------------------------
-
     def get_db(self) -> Generator[Session, None, None]:
         """
         Yields a database session. Use this as a FastAPI dependency.

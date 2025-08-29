@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # For managing SQLAlchemy database sessions  
 from sqlalchemy.orm import Session
 
@@ -7,19 +6,16 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 # ---------------------------- Internal Imports ----------------------------
-
 # JWT token verification utility and determine user role ,id function  
 from .auth_utils import AuthUtils
 
 # ---------------------------- Class: IdentityExtractor ----------------------------
-
 class AuthUserCheck:
     """
     Utility class for extracting user identity from a JWT token.
     """
 
     # ------------------------ Method: Get User from Token ------------------------
-
     @staticmethod
     def get_user_from_token(token: str, db: Session) -> tuple[str, str, int]:
         """

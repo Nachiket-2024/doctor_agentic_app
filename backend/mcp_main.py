@@ -1,27 +1,24 @@
 # ---------------------------- External Imports ----------------------------
-
-# Import the FastMCP class which provides the MCP server for exposing tools
+# Import the FastMCP class to create and run an MCP server exposing tools
 from fastmcp import FastMCP
 
 # ---------------------------- Internal Imports ----------------------------
-
-# Import centralized settings (loads environment variables via pydantic BaseSettings)
+# Import centralized settings (environment variables via pydantic BaseSettings)
 from .core.settings import settings
 
-# Import all tool modules so they register their tools with the shared MCP
-# Each tool file should import `mcp` from this file and attach tools to it
+# ---------------------------- MCP Initialization ----------------------------
+# Create a single shared MCP instance for the project
+mcp = FastMCP(name="Doctor Agentic Tools")
+
+# ---------------------------- Import tools after MCP creation ----------------------------
+# Import all tool modules after MCP instance creation to register tools
 from .mcp_tools import appointment_tools
 from .mcp_tools import doctor_tools
 from .mcp_tools import patient_tools
 from .mcp_tools import doctor_slot_tools
-
-# ---------------------------- MCP Initialization ----------------------------
-
-# Create a single shared MCP instance for the entire project
-mcp = FastMCP(name="Doctor Agentic Tools")
+from .llm import llm_tools
 
 # ---------------------------- MCP Runner ----------------------------
-
 # Only run the MCP server if this script is executed directly
 if __name__ == "__main__":
     
@@ -30,5 +27,5 @@ if __name__ == "__main__":
     host = host_port[0]           # Hostname part
     port = int(host_port[1])      # Port as integer
 
-    # Start the MCP server with extracted host and port
+    # Start the MCP server with the specified host and port
     mcp.run(host=host, port=port)

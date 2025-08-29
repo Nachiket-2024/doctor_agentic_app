@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import HTTPException for error handling
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import Doctor ORM model
 from ...models.doctor_model import Doctor
 
@@ -21,7 +19,6 @@ from ...auth.auth_user_check import AuthUserCheck
 from ...utils.slot_availability_utils import SlotAvailabilityUtils
 
 # ---------------------------- Class: CreateDoctorService ----------------------------
-
 class CreateDoctorService:
     """
     Service class to handle the creation of new doctor entries.
@@ -34,7 +31,6 @@ class CreateDoctorService:
         self.db = db
 
     # ---------------------------- Method: create_doctor ----------------------------
-
     async def create_doctor(self, doctor: DoctorCreate, token: str):
         """
         Create a new doctor entry in the system.

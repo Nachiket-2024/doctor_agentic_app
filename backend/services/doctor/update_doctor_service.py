@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import HTTPException for raising API-related errors
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import the Doctor ORM model
 from ...models.doctor_model import Doctor
 
@@ -21,7 +19,6 @@ from ...auth.auth_user_check import AuthUserCheck
 from ...utils.slot_availability_utils import SlotAvailabilityUtils
 
 # ---------------------------- Class: UpdateDoctorService ----------------------------
-
 class UpdateDoctorService:
     """
     Service class to handle updating doctor details.
@@ -29,13 +26,11 @@ class UpdateDoctorService:
     """
 
     # ---------------------------- Constructor ----------------------------
-
     def __init__(self, db: Session):
         # Store DB session for instance-level access
         self.db = db
 
     # ---------------------------- Method: update_doctor ----------------------------
-
     async def update_doctor(
         self,
         doctor_id: int,

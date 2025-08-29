@@ -1,5 +1,4 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # To make asynchronous HTTP requests to Google APIs  
 import httpx  
 
@@ -10,7 +9,6 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException  
 
 # ------------------------------------- Internal Imports -------------------------------------
-
 # Application-wide settings from environment  
 from ..core.settings import settings  
 
@@ -19,16 +17,13 @@ from ..models.admin_model import Admin
 from ..models.doctor_model import Doctor  
 from ..models.patient_model import Patient  
 
-
 # ------------------------------------- Class: GoogleTokenManager -------------------------------------
-
 class GoogleTokenService:
     """
     Handles Google OAuth2 token refresh and access token retrieval based on user role.
     """
 
     # ------------------------ Method: Get Valid Access Token ------------------------
-
     @staticmethod
     async def get_valid_google_access_token(user_id: int, role: str, db):
         """
@@ -89,7 +84,6 @@ class GoogleTokenService:
         return user.access_token, user.refresh_token
 
     # ------------------------ Method: Refresh Google Token ------------------------
-
     @staticmethod
     async def refresh_google_access_token(refresh_token: str) -> dict:
         """

@@ -1,17 +1,14 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # For working with dates, durations, and time objects
 from datetime import datetime, timedelta, time
 
 # ------------------------------------- Class: SlotAvailabilityService -------------------------------------
-
 class SlotAvailabilityUtils:
     """
     Provides utility methods for generating and filtering weekly slot times.
     """
 
     # ------------------ Static Method: Generate All Weekly Slots ------------------
-
     @staticmethod
     def generate_all_weekly_slots(time_ranges_by_day: dict[str, list[str]], slot_duration: int) -> dict[str, list[str]]:
         """
@@ -68,7 +65,6 @@ class SlotAvailabilityUtils:
         return weekly_slots
 
     # ------------------ Static Method: Filter Booked Slots ------------------
-
     @staticmethod
     def filter_booked_slots(all_slots: list[str], booked_times: list[time]) -> list[str]:
         """

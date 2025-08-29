@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # FastAPI dependencies for routing, authentication, error handling, and status codes
 from fastapi import APIRouter, Depends, status
 
@@ -10,7 +9,6 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Pydantic schemas for input and output validation of appointments
 from ..schemas.appointment_schema import AppointmentCreate, AppointmentUpdate, AppointmentResponse
 
@@ -33,12 +31,10 @@ from ..services.appointment.delete_appointment_service import DeleteAppointmentS
 from ..services.appointment.get_all_appointments_service import GetAllAppointmentsService
 
 # ---------------------------- OAuth2 Setup ----------------------------
-
 # Token URL to be used by OAuth2PasswordBearer
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # ---------------------------- Router Initialization ----------------------------
-
 # Initialize router instance with tag and path prefix
 router = APIRouter(
     prefix="/appointments",
@@ -46,7 +42,6 @@ router = APIRouter(
 )
 
 # ---------------------------- Route: Get Appointment by ID ----------------------------
-
 # Get a specific appointment based on its ID
 @router.get("/{appointment_id}", 
             response_model=AppointmentResponse, 
@@ -61,9 +56,7 @@ async def get_appointment(
 ):
     return await GetAppointmentByIDService(db).get_appointment_by_id(appointment_id, token)
 
-
 # ---------------------------- Route: Create Appointment ----------------------------
-
 # Endpoint to create a new appointment
 @router.post("/", 
              response_model=AppointmentResponse, 
@@ -79,9 +72,7 @@ async def create_appointment(
 ):
     return await CreateAppointmentService(db).create_appointment(appointment, token)
 
-
 # ---------------------------- Route: Update Appointment ----------------------------
-
 # Update an existing appointment and modify Google Calendar if needed
 @router.put("/{appointment_id}", 
             response_model=AppointmentResponse, 
@@ -97,9 +88,7 @@ async def update_appointment(
 ):
     return await UpdateAppointmentService(db).update_appointment(appointment_id, appointment_update, token)
 
-
 # ---------------------------- Route: Delete Appointment ----------------------------
-
 # Delete an appointment and remove its calendar entry if present
 @router.delete("/{appointment_id}", 
                status_code=status.HTTP_204_NO_CONTENT, 
@@ -114,9 +103,7 @@ async def delete_appointment(
 ):
     return await DeleteAppointmentService(db).delete_appointment(appointment_id, token)
 
-
 # ---------------------------- Route: Get All Appointments ----------------------------
-
 # Retrieve appointments depending on user role (admin/doctor/patient)
 @router.get("/", 
             response_model=list[AppointmentResponse], 

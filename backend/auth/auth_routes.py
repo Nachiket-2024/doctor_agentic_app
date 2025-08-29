@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # FastAPI tools for routing, dependencies, and HTTP errors
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -16,7 +15,6 @@ from jose import JWTError
 from fastapi.security import OAuth2PasswordBearer
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Internal utility functions for Google auth and JWT
 from .auth_utils import AuthUtils
 
@@ -39,7 +37,6 @@ from ..db.database_session_manager import DatabaseSessionManager
 from .google_token_service import GoogleTokenService
 
 # ---------------------------- Router & OAuth Setup ----------------------------
-
 # Set up FastAPI's OAuth2PasswordBearer to extract token from Authorization header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -50,7 +47,6 @@ router = APIRouter(
 )
 
 # ------------------------ Route: Google Login Initiation ------------------------
-
 @router.get("/login")
 async def login_with_google(request: Request, db: Session = Depends(DatabaseSessionManager().get_db)):
     """
@@ -73,9 +69,7 @@ async def login_with_google(request: Request, db: Session = Depends(DatabaseSess
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Google OAuth2 Authentication Failed: {str(e)}")
 
-
 # ------------------------ Route: OAuth2 Callback ------------------------
-
 @router.get("/callback")
 async def google_callback(code: str, db: Session = Depends(DatabaseSessionManager().get_db)):
     """
@@ -89,9 +83,7 @@ async def google_callback(code: str, db: Session = Depends(DatabaseSessionManage
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Google OAuth2 Authentication Failed: {str(e)}")
 
-
 # ------------------------ Route: Get Current Authenticated User ------------------------
-
 @router.get("/me")
 async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(DatabaseSessionManager().get_db)):
     """
@@ -139,9 +131,7 @@ async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depen
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # ------------------------ Route: Logout ------------------------
-
 @router.post("/logout")
 async def logout():
     """

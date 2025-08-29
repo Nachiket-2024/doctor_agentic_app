@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Import FastAPI core components for routing, dependency injection, and HTTP status codes
 from fastapi import APIRouter, Depends, status
 
@@ -10,7 +9,6 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import Pydantic schemas for Doctor for input validation and response formatting
 from ..schemas.doctor_schema import DoctorCreate, DoctorRead, DoctorUpdate, DoctorDeleteResponse
 
@@ -33,7 +31,6 @@ from ..services.doctor.delete_doctor_service import DeleteDoctorService
 from ..services.doctor.get_all_doctors_service import GetAllDoctorsService
 
 # ---------------------------- Initialization ----------------------------
-
 # Initialize the OAuth2 password bearer to extract token from Authorization header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -44,7 +41,6 @@ router = APIRouter(
 )
 
 # ---------------------------- Route: Get Doctor by ID ----------------------------
-
 # Define route to retrieve a specific doctor by ID
 @router.get("/{doctor_id}", 
             response_model=DoctorRead, 
@@ -63,9 +59,7 @@ async def get_doctor(
     # Delegate logic to service layer to get doctor by ID
     return await GetDoctorByIdService(db).get_doctor_by_id(doctor_id, token)
 
-
 # ---------------------------- Route: Create Doctor (Admin Only) ----------------------------
-
 # Define route to create a new doctor (Admin access required)
 @router.post("/", 
              response_model=DoctorRead, 
@@ -85,9 +79,7 @@ async def create_doctor(
     # Delegate logic to service layer to create a new doctor
     return await CreateDoctorService(db).create_doctor(doctor, token)
 
-
 # ---------------------------- Route: Update Doctor (Admin Only) ----------------------------
-
 # Define route to update doctor details (Admin access required)
 @router.put("/{doctor_id}", 
             response_model=DoctorRead, 
@@ -107,9 +99,7 @@ async def update_doctor(
     # Delegate logic to service layer to update doctor information
     return await UpdateDoctorService(db).update_doctor(doctor_id, updated_doctor, token)
 
-
 # ---------------------------- Route: Delete Doctor (Admin Only) ----------------------------
-
 # Define route to delete a doctor (Admin access required)
 @router.delete("/{doctor_id}", 
                response_model=DoctorDeleteResponse, 
@@ -128,9 +118,7 @@ async def delete_doctor(
     # Delegate logic to service layer to delete the doctor
     return await DeleteDoctorService(db).delete_doctor(doctor_id, token)
 
-
 # ---------------------------- Route: Get All Doctors ----------------------------
-
 # Define route to retrieve all doctors
 @router.get("/", 
             response_model=list[DoctorRead], 

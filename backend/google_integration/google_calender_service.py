@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # To create Google credentials that support refresh tokens
 from google.oauth2.credentials import Credentials
 
@@ -10,7 +9,6 @@ from googleapiclient.discovery import build
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # To fetch valid (and refresh if needed) Google tokens from the database
 from ..auth.google_token_service import GoogleTokenService
 
@@ -18,7 +16,6 @@ from ..auth.google_token_service import GoogleTokenService
 from ..core.settings import settings
 
 # ---------------------------- Class: GoogleCalendarService ----------------------------
-
 class GoogleCalendarService:
     """
     Handles creation, update, and deletion of Google Calendar events using
@@ -36,7 +33,6 @@ class GoogleCalendarService:
         self.user_role = user_role
 
     # ---------------------------- Function: get_google_credentials ----------------------------
-
     def get_google_credentials(self, access_token: str, refresh_token: str) -> Credentials:
         """
         Builds a Google credentials object using access and refresh tokens.
@@ -53,7 +49,6 @@ class GoogleCalendarService:
         )
 
     # ---------------------------- Function: build_calendar_service ----------------------------
-
     def build_calendar_service(self, access_token: str, refresh_token: str):
         """
         Returns an authenticated Google Calendar API client using credentials.
@@ -65,7 +60,6 @@ class GoogleCalendarService:
         return build("calendar", "v3", credentials=creds)
 
     # ---------------------------- Function: create_event ----------------------------
-
     async def create_event(self, summary: str, start_time: str, end_time: str, email: str):
         """
         Creates a new Google Calendar event for the authenticated user.
@@ -91,7 +85,6 @@ class GoogleCalendarService:
         return service.events().insert(calendarId="primary", body=event).execute()
 
     # ---------------------------- Function: update_event ----------------------------
-
     async def update_event(self, event_id: str, summary: str, start_time: str, end_time: str, email: str):
         """
         Updates an existing event using its event ID and new event data.
@@ -121,7 +114,6 @@ class GoogleCalendarService:
         ).execute()
 
     # ---------------------------- Function: delete_event ----------------------------
-
     async def delete_event(self, event_id: str):
         """
         Deletes an existing calendar event from the user's Google Calendar.

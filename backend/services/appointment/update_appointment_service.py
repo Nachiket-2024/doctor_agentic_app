@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # Exception class for HTTP error responses
 from fastapi import HTTPException
 
@@ -13,7 +12,6 @@ import calendar
 from datetime import time
 
 # ---------------------------- Internal Imports ----------------------------
-
 # SQLAlchemy model for appointments
 from ...models.appointment_model import Appointment
 
@@ -38,7 +36,6 @@ from ...google_integration.gmail_service import GmailService
 from ...utils.slot_availability_utils import SlotAvailabilityUtils
 
 # ---------------------------- Class: UpdateAppointmentService ----------------------------
-
 class UpdateAppointmentService:
     """
     Service class to handle appointment updates, including time validation,
@@ -51,7 +48,6 @@ class UpdateAppointmentService:
         self.db = db
 
     # ---------------------------- Method: Update Appointment ----------------------------
-
     async def update_appointment(self, appointment_id: int, appointment_update: AppointmentUpdate, token: str):
         """
         Update an existing appointment, validate time availability, sync with calendar,

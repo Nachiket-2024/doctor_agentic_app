@@ -1,5 +1,4 @@
 # ------------------------------------- External Imports -------------------------------------
-
 # For encoding the MIME message to base64
 import base64
 
@@ -16,7 +15,6 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 # ------------------------------------- Internal Imports -------------------------------------
-
 # Appointment model to fetch appointment details
 from ..models.appointment_model import Appointment
 
@@ -33,7 +31,6 @@ from .google_calender_service import GoogleCalendarService
 from ..auth.google_token_service import GoogleTokenService
 
 # ------------------------------------- Class: GmailService -------------------------------------
-
 class GmailService:
     """
     GmailService provides functionality to send appointment-related emails (created, updated, cancelled)
@@ -51,7 +48,6 @@ class GmailService:
         self.user_role = "admin"
 
     # ----------------- Function: send_email -----------------
-
     async def send_email_via_gmail(
         self,
         to_email: str,                 # Email address of the recipient (patient)
@@ -64,7 +60,6 @@ class GmailService:
         """
 
         # ----------------- Step 1: Fetch appointment -----------------
-
         # Query the appointment by ID from the database
         appointment = self.db.query(Appointment).filter(Appointment.id == appointment_id).first()
 
@@ -73,7 +68,6 @@ class GmailService:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
         # ----------------- Step 2: Fetch doctor and patient -----------------
-
         # Fetch doctor associated with the appointment
         doctor = self.db.query(Doctor).filter(Doctor.id == appointment.doctor_id).first()
 
@@ -85,7 +79,6 @@ class GmailService:
             raise HTTPException(status_code=404, detail="Doctor or Patient not found")
 
         # ----------------- Step 3: Generate Google credentials -----------------
-
         # Get a valid access and refresh token for this user
         access_token, refresh_token = await GoogleTokenService.get_valid_google_access_token(
             self.user_id,
@@ -97,17 +90,14 @@ class GmailService:
         credentials = GoogleCalendarService(self.db, self.user_id, self.user_role).get_google_credentials(access_token, refresh_token)
 
         # ----------------- Step 4: Initialize Gmail API client -----------------
-
         # Use the credentials to build the Gmail API service
         gmail_service = build("gmail", "v1", credentials=credentials)
 
         # ----------------- Step 5: Construct email body -----------------
-
         # Dynamically create the email message content
         body = self._build_email_body(email_type, patient.name, doctor.name, appointment)
 
         # ----------------- Step 6: Construct MIME message -----------------
-
         # Build a MIMEText object from the email body
         message = MIMEText(body)
 
@@ -121,7 +111,6 @@ class GmailService:
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
         # ----------------- Step 7: Send the email -----------------
-
         # Send the email through Gmail API
         gmail_service.users().messages().send(
             userId="me",               # "me" refers to the authenticated user
@@ -129,12 +118,10 @@ class GmailService:
         ).execute()
 
         # ----------------- Step 8: Return success response -----------------
-
         # Return a simple success confirmation
         return {"message": "Email sent successfully"}
 
     # ----------------- Function: _build_email_body -----------------
-
     def _build_email_body(
         self,
         email_type: str,                  # Type of notification email (created, updated, cancelled)

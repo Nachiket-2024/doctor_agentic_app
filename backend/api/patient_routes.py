@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # FastAPI core components for building routes, handling requests, and raising exceptions
 from fastapi import APIRouter, Depends, status
 
@@ -10,7 +9,6 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import database session provider function
 from ..db.database_session_manager import DatabaseSessionManager
 
@@ -38,12 +36,10 @@ from ..services.patient.delete_patient_service import DeletePatientService
 from ..services.patient.get_all_patients_service import GetAllPatientsService
 
 # ---------------------------- OAuth2 Setup ----------------------------
-
 # Create an instance of OAuth2PasswordBearer to extract token from Authorization header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # ---------------------------- Router Setup ----------------------------
-
 # Create a FastAPI router instance for patient-related endpoints
 router = APIRouter(
     prefix="/patient",     # Route prefix for all endpoints in this router
@@ -51,7 +47,6 @@ router = APIRouter(
 )
 
 # ---------------------------- Route: Get Patient by ID ----------------------------
-
 # Define route to retrieve a specific patient's profile by ID
 @router.get("/{patient_id}", 
             response_model=PatientRead, 
@@ -71,9 +66,7 @@ async def get_patient(
     # Call the modular service to handle patient retrieval logic
     return await GetPatientByIDService(db).get_patient_by_id(patient_id, token)
 
-
 # ---------------------------- Route: Create Patient ----------------------------
-
 # Endpoint to create a new patient profile
 @router.post("/", 
              response_model=PatientRead, 
@@ -90,9 +83,7 @@ async def create_patient(
     # Call the modular service to handle patient creation
     return await CreatePatientService(db).create_patient(patient, token)
 
-
 # ---------------------------- Route: Update Patient ----------------------------
-
 # Endpoint to update an existing patient's profile
 @router.put("/{patient_id}", 
             response_model=PatientRead, 
@@ -109,9 +100,7 @@ async def update_patient(
     # Call the modular service to handle patient update logic
     return await UpdatePatientService(db).update_patient(patient_id, update_data, token)
 
-
 # ---------------------------- Route: Delete Patient ----------------------------
-
 # Endpoint to delete a patient (admin-only access)
 @router.delete("/{patient_id}", 
                response_model=PatientDeleteResponse, 
@@ -131,9 +120,7 @@ async def delete_patient(
     # Call the modular service to handle patient deletion
     return await DeletePatientService(db).delete_patient(patient_id, token)
 
-
 # ---------------------------- Route: Get All Patients ----------------------------
-
 # Endpoint to retrieve all patients (admin gets all; patient gets only self)
 @router.get("/", 
             response_model=list[PatientRead], 

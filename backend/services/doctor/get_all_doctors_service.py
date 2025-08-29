@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # FastAPI HTTPException for proper error responses
 from fastapi import HTTPException
 
@@ -7,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Import the Doctor model for querying doctor data
 from ...models.doctor_model import Doctor
 
@@ -15,7 +13,6 @@ from ...models.doctor_model import Doctor
 from ...auth.auth_user_check import AuthUserCheck
 
 # ---------------------------- Class: GetAllDoctorsService ----------------------------
-
 class GetAllDoctorsService:
     """
     Service class to retrieve doctors based on user role:
@@ -24,13 +21,11 @@ class GetAllDoctorsService:
     """
 
     # ---------------------------- Constructor ----------------------------
-
     def __init__(self, db: Session):
         # Store the DB session instance
         self.db = db
 
     # ---------------------------- Method: get_all_doctors ----------------------------
-
     async def get_all_doctors(self, token: str) -> list[Doctor]:
         """
         Get a list of doctors based on user's role.

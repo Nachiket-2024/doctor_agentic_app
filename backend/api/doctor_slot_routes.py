@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # FastAPI tools for routing, dependency injection, and HTTP exceptions
 from fastapi import APIRouter, Depends, Query
 
@@ -10,7 +9,6 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Dependency to get a database session
 from ..db.database_session_manager import DatabaseSessionManager
 
@@ -18,12 +16,10 @@ from ..db.database_session_manager import DatabaseSessionManager
 from ..services.doctor_slot.doctor_slot_availability_service import DoctorSlotAvailabilityService
 
 # ---------------------------- OAuth2 Setup ----------------------------
-
 # Setup OAuth2 scheme to extract token from Authorization header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # ---------------------------- APIRouter Setup ----------------------------
-
 # Initialize FastAPI router with prefix and documentation tags
 router = APIRouter(
     prefix="/doctor_slot",      # Base URL prefix for all routes in this router
@@ -31,7 +27,6 @@ router = APIRouter(
 )
 
 # ---------------------------- Route: Get Available Slots ----------------------------
-
 # Define an HTTP GET route to fetch available slots for a doctor on a given date
 @router.get("/{doctor_id}/available-slots", 
             operation_id="get_available_slots_by_doctor_id", 

@@ -1,5 +1,4 @@
 # ---------------------------- External Imports ----------------------------
-
 # For parsing string date formats
 from datetime import datetime
 
@@ -13,7 +12,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ---------------------------- Internal Imports ----------------------------
-
 # Doctor model to fetch weekly available slots
 from ...models.doctor_model import Doctor
 
@@ -24,7 +22,6 @@ from ...models.appointment_model import Appointment
 from ...utils.slot_availability_utils import SlotAvailabilityUtils
 
 # ---------------------------- Class: DoctorSlotAvailabilityService ----------------------------
-
 class DoctorSlotAvailabilityService:
     """
     Service to retrieve available slots for a doctor on a specific date,
@@ -32,13 +29,11 @@ class DoctorSlotAvailabilityService:
     """
 
     # ---------------------------- Constructor ----------------------------
-
     def __init__(self, db: Session):
         # Initialize with the provided database session
         self.db = db
 
     # ---------------------------- Method: get_available_slots ----------------------------
-
     async def get_available_slots_by_doctor_id(
         self,
         doctor_id: int,
