@@ -73,6 +73,7 @@ cd doctor_agentic_app
 Install Backend dependencies with pip:
 
 ```bash
+cd backend
 pip install -r requirements.txt
 ```
 
@@ -104,7 +105,7 @@ cp .env.example .env
 ### 1. Start the FastAPI backend
 
 ```bash
-uvicorn backend.main:app --reload
+uvicorn backend.app.main:app --reload
 ```
 
 ### 2. Run the React frontend
